@@ -17,10 +17,16 @@ const ASSISTANT_STATS: DashboardStat[] = [
   { label: "Open Opportunities", value: 13, trend: "Value up 9.4%" }
 ];
 
+
+
+
+
+
 export async function getDashboardStats(role: UserRole): Promise<DashboardStat[]> {
   if (!API_BASE_URL) {
     await new Promise((resolve) => setTimeout(resolve, 300));
-    return role === "admin" ? ADMIN_STATS : ASSISTANT_STATS;
+    return role === "admin" ? ADMIN_STATS  : ASSISTANT_STATS;
+     
   }
 
   const response = await fetch(`${API_BASE_URL}/dashboard/${role}/stats`, {
