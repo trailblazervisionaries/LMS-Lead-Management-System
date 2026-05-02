@@ -40,14 +40,11 @@ export function LoginForm() {
   }, [searchParams, setValue]);
 
   return (
-    <div className="w-full max-w-[520px] px-1 sm:px-2">
+    <div className="w-full max-w-[620px] px-1 sm:px-2">
       <div className="mb-8 space-y-2">
         <h1 className="text-[clamp(1.25rem,2vw,2.2rem)] font-semibold leading-tight tracking-tight text-slate-600">Welcome to LeadOrbit!</h1>
         <p className="text-[clamp(0.95rem,1.08vw,1.25rem)] leading-relaxed text-slate-400">Please sign-in to your account and start the adventure</p>
       </div>
-
-  
-
       <form className="space-y-3 md:space-y-4" onSubmit={handleSubmit(onSubmit)}>
         <div className="space-y-2">
           <div className="relative rounded-xl border border-slate-300 bg-white px-3 pb-2 pt-3">
@@ -68,7 +65,6 @@ export function LoginForm() {
           </div>
           {errors.email ? <p className="text-sm text-red-600">{errors.email.message}</p> : null}
         </div>
-
         <div className="space-y-2">
           <div className="relative rounded-xl border border-slate-300 bg-white px-3 pb-2 pt-3">
             <label
@@ -77,7 +73,6 @@ export function LoginForm() {
             >
               Password
             </label>
-
             <Input
               id="password"
               type={showPassword ? "text" : "password"}
@@ -86,7 +81,6 @@ export function LoginForm() {
               className="h-[clamp(2.2rem,2.5vw,2.8rem)] border-0 bg-transparent px-0 pr-10 text-[clamp(0.95rem,0.98vw,1.12rem)] text-slate-700 shadow-none placeholder:text-slate-400 focus-visible:ring-0 focus-visible:ring-offset-0 dark:!bg-transparent dark:!text-slate-700 dark:!placeholder:text-slate-400"
               {...register("password")}
             />
-
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
@@ -125,11 +119,9 @@ export function LoginForm() {
             Forgot password?
           </Link>
         </div>
-
         {loginMutation.error ? (
           <p className="text-base text-red-600">{loginMutation.error instanceof Error ? loginMutation.error.message : "Login failed"}</p>
         ) : null}
-
         <Button
           type="submit"
           className="h-[clamp(3rem,3.2vw,4rem)] w-full rounded-2xl bg-violet-500 text-[clamp(1rem,1.04vw,1.35rem)] font-semibold text-white shadow-[0_8px_24px_rgba(124,58,237,0.25)] hover:bg-violet-600 dark:!bg-violet-500 dark:hover:!bg-violet-600"
@@ -138,7 +130,6 @@ export function LoginForm() {
           {loginMutation.isPending ? "Logging in..." : "Log In"}
         </Button>
       </form>
-
       <p className="mt-6 text-center text-[clamp(0.9rem,0.92vw,1.05rem)] text-slate-500 md:mt-8">
         New on our platform? <span className="font-medium text-violet-500">Create an account</span>
       </p>
