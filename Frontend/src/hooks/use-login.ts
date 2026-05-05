@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { login } from "@/services/auth-service";
+import { login } from "@/services/auth/auth-service";
 import { useAuthStore } from "@/store/auth-store";
 
 export function useLogin() {
@@ -13,7 +13,7 @@ export function useLogin() {
     mutationFn: login,
     onSuccess: (response) => {
       setAuth(response.user, response.token);
-      router.replace(response.user.role === "admin" ? "/admin" : "/assistant");
+      router.replace(`/${response.user.role}`);
     }
   });
 }

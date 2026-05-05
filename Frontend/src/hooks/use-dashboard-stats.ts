@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { getDashboardStats } from "@/services/dashboard-service";
+import { getDashboardStats } from "@/services/assistant/dashboard-service";
 import { UserRole } from "@/types/auth";
 
 export function useDashboardStats(role: UserRole) {

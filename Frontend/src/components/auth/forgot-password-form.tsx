@@ -11,7 +11,7 @@ import {
   ResetPasswordSchemaValues,
   resetPasswordSchema
 } from "@/lib/validators/auth";
-import { requestPasswordReset, resetPassword } from "@/services/auth-service";
+import { requestPasswordReset, resetPassword } from "@/services/auth/auth-service";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";

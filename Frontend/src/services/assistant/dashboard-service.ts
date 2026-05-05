@@ -1,5 +1,7 @@
 import { DashboardStat } from "@/types/dashboard";
 import { UserRole } from "@/types/auth";
+import api from "@/api/axios";
+import axios from "axios";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -17,25 +19,26 @@ const ASSISTANT_STATS: DashboardStat[] = [
   { label: "Open Opportunities", value: 13, trend: "Value up 9.4%" }
 ];
 
-
-
-
-
-
 export async function getDashboardStats(role: UserRole): Promise<DashboardStat[]> {
   if (!API_BASE_URL) {
     await new Promise((resolve) => setTimeout(resolve, 300));
     return role === "admin" ? ADMIN_STATS  : ASSISTANT_STATS;
-     
   }
 
-  const response = await fetch(`${API_BASE_URL}/dashboard/${role}/stats`, {
-    cache: "no-store"
-  });
+  try {
+    const response = await api.get<DashboardStat[]>(`/dashboard/${role}/stats`);
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const responseData = error.response?.data;
+      if (responseData && typeof responseData === "object" && "message" in responseData) {
+        const message = (responseData as { message?: unknown }).message;
+        if (typeof message === "string") {
+          throw new Error(message);
+        }
+      }
+    }
 
-  if (!response.ok) {
     throw new Error("Unable to fetch dashboard stats");
   }
-
-  return response.json();
 }
