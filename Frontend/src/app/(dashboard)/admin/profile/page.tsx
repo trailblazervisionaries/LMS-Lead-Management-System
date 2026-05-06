@@ -1,6 +1,5 @@
 "use client";
 
-import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { Card } from "@/components/ui/card";
 import { useAdminProfile } from "@/hooks/use-admin-profile";
 
@@ -43,7 +42,7 @@ export default function AdminProfilePage() {
   const profileImageUrl = getImageUrl(data?.profile_image ?? null);
 
   return (
-    <DashboardLayout role="admin">
+    <>
       <section className="space-y-6">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Profile</h2>
@@ -152,6 +151,6 @@ export default function AdminProfilePage() {
           </>
         ) : null}
       </section>
-    </DashboardLayout>
+    </>
   );
 }

@@ -1,8 +1,6 @@
 "use client";
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
-import * as XLSX from "xlsx";
-import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -155,6 +153,7 @@ export default function AdminTotalLeadsPage() {
     if (!file) return;
 
     try {
+      const XLSX = await import("xlsx");
       const fileData = await file.arrayBuffer();
       const workbook = XLSX.read(fileData, { type: "array" });
       const firstSheetName = workbook.SheetNames[0];
@@ -213,7 +212,7 @@ export default function AdminTotalLeadsPage() {
   };
 
   return (
-    <DashboardLayout role="admin">
+    <>
       <section className="space-y-6">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Total Leads</h2>
@@ -380,6 +379,6 @@ export default function AdminTotalLeadsPage() {
           </div>
         </Card>
       </section>
-    </DashboardLayout>
+    </>
   );
 }

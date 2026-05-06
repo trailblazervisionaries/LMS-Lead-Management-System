@@ -2,8 +2,6 @@
 
 import { type ChangeEvent, type DragEvent, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { DashboardLayout } from "@/components/layout/dashboard-layout";
-import { useDashboardStats } from "@/hooks/use-dashboard-stats";
 
 type BuilderFieldType = "text" | "email" | "number" | "tel" | "textarea" | "select" | "file";
 type FieldLayout = "half" | "full";
@@ -197,7 +195,6 @@ function escapeHtml(value: string) {
 }
 
 export default function AdminLeadFormsPage() {
-  const { data, isLoading, isError } = useDashboardStats("admin");
   const [formFields, setFormFields] = useState<FormBuilderField[]>([]);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [isSendSettingsOpen, setIsSendSettingsOpen] = useState(false);
@@ -440,7 +437,7 @@ export default function AdminLeadFormsPage() {
   };
 
   return (
-    <DashboardLayout role="admin">
+    <>
       <section className="space-y-6">
         {/* <div>
           <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Lead Form Builder</h2>
@@ -956,6 +953,6 @@ export default function AdminLeadFormsPage() {
           </Card>
         </div>
       </section>
-    </DashboardLayout>
+    </>
   );
 }

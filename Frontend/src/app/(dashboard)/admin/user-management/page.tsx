@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -64,7 +63,7 @@ export default function AdminUserManagementPage() {
   };
 
   return (
-    <DashboardLayout role="admin">
+    <>
       <section className="space-y-6">
         {/* <div>
           <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">User Management</h2>
@@ -195,7 +194,7 @@ export default function AdminUserManagementPage() {
           )}
         </Card>
       </section>
-    </DashboardLayout>
+    </>
   );
 }
 
