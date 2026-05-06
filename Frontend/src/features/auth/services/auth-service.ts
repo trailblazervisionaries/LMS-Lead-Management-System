@@ -9,13 +9,23 @@ import {
   JwtPayload,
   ResetPasswordPayload,
   ResetPasswordResponse
-} from "@/types/auth";
+} from "@/features/auth/types/auth";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const USE_MOCK_AUTH = process.env.NEXT_PUBLIC_USE_MOCK_AUTH !== "false";
+
+const MOCK_RESET_OTP = new Map<string, { otp: string; expiresAt: number }>();
+const MOCK_PASSWORD_RESET_USERS = new Map<string, string>();
 
 interface LoginApiResponse {
   user_id: string;
   email: string;
   role: "admin" | "assistant";
   access_token: string;
+}
+
+function generateOtp() {
+  return String(Math.floor(100000 + Math.random() * 900000));
 }
 
 function getApiErrorMessage(error: unknown, fallbackMessage: string) {
@@ -61,6 +71,22 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
 }
 
 export async function requestPasswordReset(payload: ForgotPasswordPayload): Promise<ForgotPasswordResponse> {
+  if (USE_MOCK_AUTH || !API_BASE_URL) {
+    await new Promise((resolve) => setTimeout(resolve, 350));
+
+    const otp = generateOtp();
+    MOCK_RESET_OTP.set(payload.email, {
+      otp,
+      expiresAt: Date.now() + 10 * 60 * 1000
+    });
+    MOCK_PASSWORD_RESET_USERS.set(payload.email, payload.email);
+
+    return {
+      message: "OTP sent to your email",
+      otp
+    };
+  }
+
   try {
     const response = await api.post<ForgotPasswordResponse>("/auth/forgot-password", payload);
     return response.data;
@@ -70,6 +96,32 @@ export async function requestPasswordReset(payload: ForgotPasswordPayload): Prom
 }
 
 export async function resetPassword(payload: ResetPasswordPayload): Promise<ResetPasswordResponse> {
+  if (USE_MOCK_AUTH || !API_BASE_URL) {
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    const userExists = MOCK_PASSWORD_RESET_USERS.has(payload.email);
+    if (!userExists) {
+      throw new Error("No account found for this email");
+    }
+
+    const otpRecord = MOCK_RESET_OTP.get(payload.email);
+    if (!otpRecord) {
+      throw new Error("Please request OTP first");
+    }
+
+    if (Date.now() > otpRecord.expiresAt) {
+      MOCK_RESET_OTP.delete(payload.email);
+      throw new Error("OTP expired. Please request a new one");
+    }
+
+    if (otpRecord.otp !== payload.otp) {
+      throw new Error("Invalid OTP");
+    }
+
+    MOCK_RESET_OTP.delete(payload.email);
+
+    return { message: "Password reset successful" };
+  }
+
   try {
     const response = await api.post<ResetPasswordResponse>("/auth/reset-password", payload);
     return response.data;
@@ -81,3 +133,4 @@ export async function resetPassword(payload: ResetPasswordPayload): Promise<Rese
 export function decodeToken(token: string): JwtPayload {
   return jwtDecode<JwtPayload>(token);
 }
+
