@@ -1,8 +1,8 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { createAssistant } from "@/features/admin/services/user-management-service";
-import { CreateAssistantPayload } from "@/features/admin/types/user-management";
+import { createAssistant } from "@/services/admin/user-management-service";
+import { CreateAssistantPayload } from "@/types/user-management";
 
 export function useCreateAssistant() {
   return useMutation({

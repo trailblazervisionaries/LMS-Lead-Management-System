@@ -1,5 +1,6 @@
 const TOKEN_KEY = "lms_token";
 const ROLE_KEY = "lms_role";
+const UI_THEME_KEY = "lms_ui_theme";
 
 const DEFAULT_COOKIE_OPTIONS = "Path=/; SameSite=Lax";
 
@@ -15,7 +16,29 @@ export function clearAuthCookies() {
   document.cookie = `${ROLE_KEY}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
 }
 
+export function getUiThemeCookie() {
+  if (typeof document === "undefined") return null;
+  const themeValue = document.cookie
+    .split("; ")
+    .find((cookie) => cookie.startsWith(`${UI_THEME_KEY}=`))
+    ?.split("=")[1];
+
+  return themeValue ? decodeURIComponent(themeValue) : null;
+}
+
+export function setUiThemeCookie(theme: "light" | "dark") {
+  if (typeof document === "undefined") return;
+  document.cookie = `${UI_THEME_KEY}=${theme}; ${DEFAULT_COOKIE_OPTIONS}`;
+}
+
+export function clearLegacyLocalStorageKeys() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem("lms-auth");
+  window.localStorage.removeItem("lms-ui");
+}
+
 export const authCookieKeys = {
   token: TOKEN_KEY,
-  role: ROLE_KEY
+  role: ROLE_KEY,
+  uiTheme: UI_THEME_KEY
 };

@@ -177,7 +177,7 @@ export default function AdminUserManagementPage() {
                     <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-200">Address</th>
                   </tr>
                 </thead>
-                <tbody>
+                {/* <tbody>
                   {createdUsers.map((user) => (
                     <tr key={user.id} className="border-t border-slate-200 dark:border-slate-700">
                       <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{user.name}</td>
@@ -189,7 +189,7 @@ export default function AdminUserManagementPage() {
                       </td>
                     </tr>
                   ))}
-                </tbody>
+                </tbody> */}
               </table>
             </div>
           )}

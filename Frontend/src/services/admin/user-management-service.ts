@@ -3,10 +3,21 @@ import { AdminProfileResponse } from "@/types/admin-profile";
 import axios from "axios";
 import api from "@/api/axios";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-const USE_MOCK_USERS = process.env.NEXT_PUBLIC_USE_MOCK_USERS !== "false";
+function getAdminToken() {
+  if (typeof document === "undefined") {
+    return null;
+  }
 
-let mockAssistantCounter = 1000;
+  const tokenFromCookie = document.cookie
+    .split("; ")
+    .find((cookie) => cookie.startsWith("lms_token="))
+    ?.split("=")[1];
+  if (tokenFromCookie) {
+    return decodeURIComponent(tokenFromCookie);
+  }
+  
+  return null;
+}
 
 function getApiErrorMessage(error: unknown, fallbackMessage: string) {
   if (axios.isAxiosError(error)) {
@@ -32,22 +43,17 @@ function getApiErrorMessage(error: unknown, fallbackMessage: string) {
 }
 
 export async function createAssistant(payload: CreateAssistantPayload): Promise<CreateAssistantResponse> {
-  if (USE_MOCK_USERS || !API_BASE_URL) {
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    mockAssistantCounter += 1;
-
-    return {
-      message: "Assistant created successfully",
-      assistant: {
-        id: String(mockAssistantCounter),
-        role: "assistant",
-        ...payload
-      }
-    };
+  const token = getAdminToken();
+  if (!token) {
+    throw new Error("Admin authentication required. Please log in again.");
   }
 
   try {
-    const response = await api.post<CreateAssistantResponse>("/users/assistants", payload);
+    const response = await api.post<CreateAssistantResponse>("/api/assistant/add", payload, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
     return response.data;
   } catch (error) {
     throw new Error(getApiErrorMessage(error, "Unable to create assistant"));
