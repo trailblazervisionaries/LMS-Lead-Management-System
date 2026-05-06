@@ -20,13 +20,13 @@ Production-grade LMS frontend scaffold built with Next.js 14 (App Router), TypeS
                            ▼
                 ┌──────────────────────────┐
                 │      Next.js App         │
-                │   (React + App Router)  │
+                │   (React + App Router)   │
                 └──────────┬──────────────┘
                            │ HTTPS / REST API
                            ▼
                 ┌──────────────────────────┐
                 │        Backend API       │
-                │   (FastAPI / Node.js)   │
+                │   (FastAPI / Node.js)    │
                 └──────────────────────────┘
 
 ## FRONTEND LLD
