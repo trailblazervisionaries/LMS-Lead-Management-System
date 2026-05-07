@@ -1,7 +1,7 @@
 "use client";
 
 import { PropsWithChildren, useState } from "react";
-import { UserRole } from "@/types/auth";
+import { UserRole } from "@/types/auth/auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 
@@ -40,3 +40,4 @@ export function DashboardLayout({ role, children }: DashboardLayoutProps) {
     </div>
   );
 }
+

@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { LoginForm } from "@/components/auth/login-form";
+import { LoginForm } from "@/features/auth/components/login-form";
 
 const LOGIN_SIDE_IMAGE_SRC = "/Auth/login-side-illustration.png";
 const LOGIN_LOGO_SRC = "/Auth/login-logo.png";

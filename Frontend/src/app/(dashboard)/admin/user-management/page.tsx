@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useCreateAssistant } from "@/hooks/use-create-assistant";
 import { createAssistantSchema, CreateAssistantSchemaValues } from "@/lib/validators/user-management";
-import { AssistantUser, CreateAssistantPayload } from "@/types/user-management";
+import { AssistantUser, CreateAssistantPayload } from "@/types/assistants/user-management";
 
 export default function AdminUserManagementPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -197,4 +197,5 @@ export default function AdminUserManagementPage() {
     </>
   );
 }
+
 

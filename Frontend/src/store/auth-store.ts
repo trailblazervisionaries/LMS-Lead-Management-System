@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { AuthUser } from "@/types/auth";
+import { AuthUser } from "@/types/auth/auth";
 import { clearAuthCookies, setAuthCookies } from "@/utils/cookies";
 
 interface AuthState {
@@ -25,3 +25,4 @@ export const useAuthStore = create<AuthState>()((set) => ({
     set({ user: null, token: null, role: null });
   }
 }));
+

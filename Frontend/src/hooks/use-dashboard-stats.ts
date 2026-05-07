@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getDashboardStats } from "@/services/assistant/dashboard-service";
-import { UserRole } from "@/types/auth";
+import { UserRole } from "@/types/auth/auth";
 
 export function useDashboardStats(role: UserRole) {
   return useQuery({
@@ -10,3 +10,4 @@ export function useDashboardStats(role: UserRole) {
     queryFn: () => getDashboardStats(role)
   });
 }
+

@@ -1,5 +1,5 @@
 import { DashboardStat } from "@/types/dashboard";
-import { UserRole } from "@/types/auth";
+import { UserRole } from "@/types/auth/auth";
 import api from "@/api/axios";
 import axios from "axios";
 
@@ -41,3 +41,4 @@ export async function getDashboardStats(role: UserRole): Promise<DashboardStat[]
     throw new Error("Unable to fetch dashboard stats");
   }
 }
+

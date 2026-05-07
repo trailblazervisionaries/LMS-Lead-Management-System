@@ -1,7 +1,7 @@
-import { CreateAssistantPayload, CreateAssistantResponse } from "@/types/user-management";
-import { AdminProfileResponse } from "@/types/admin-profile";
-import axios from "axios";
+import { CreateAssistantPayload, CreateAssistantResponse } from "@/types/assistants/user-management";
+import { AdminProfileResponse } from "@/types/admin/admin-profile";
 import api from "@/api/axios";
+import { getApiErrorMessage } from "@/utils/api-error";
 
 function getAdminToken() {
   if (typeof document === "undefined") {
@@ -17,29 +17,6 @@ function getAdminToken() {
   }
   
   return null;
-}
-
-function getApiErrorMessage(error: unknown, fallbackMessage: string) {
-  if (axios.isAxiosError(error)) {
-    const responseData = error.response?.data;
-    if (typeof responseData === "string") {
-      return responseData;
-    }
-    if (responseData && typeof responseData === "object" && "message" in responseData) {
-      const message = (responseData as { message?: unknown }).message;
-      if (typeof message === "string") {
-        return message;
-      }
-    }
-    if (responseData && typeof responseData === "object" && "detail" in responseData) {
-      const detail = (responseData as { detail?: unknown }).detail;
-      if (typeof detail === "string") {
-        return detail;
-      }
-    }
-  }
-
-  return fallbackMessage;
 }
 
 export async function createAssistant(payload: CreateAssistantPayload): Promise<CreateAssistantResponse> {
@@ -68,3 +45,4 @@ export async function getAdminProfile(): Promise<AdminProfileResponse> {
     throw new Error(getApiErrorMessage(error, "Unable to fetch admin profile"));
   }
 }
+

@@ -1,4 +1,4 @@
-import { UserRole } from "@/types/auth";
+import { UserRole } from "@/types/auth/auth";
 
 export interface CreateAssistantPayload {
   name: string;
@@ -21,3 +21,4 @@ export interface CreateAssistantResponse {
   message: string;
   assistant: AssistantUser;
 }
+

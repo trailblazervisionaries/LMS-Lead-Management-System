@@ -1,6 +1,6 @@
 "use client";
 
-import { SectionPage } from "@/components/dashboard/section-page";
+import { SectionPage } from "@/components/admin/section-page";
 
 export default function AdminAssignedLeadsPage() {
   return (
@@ -12,3 +12,5 @@ export default function AdminAssignedLeadsPage() {
     </>
   );
 }
+
+

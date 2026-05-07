@@ -1,6 +1,6 @@
 "use client";
 
-import { AssistantDashboard } from "@/components/dashboard/assistant-dashboard";
+import { AssistantDashboard } from "@/components/assistants/assistant-dashboard";
 import { useDashboardStats } from "@/hooks/use-dashboard-stats";
 
 export default function AssistantDashboardPage() {
@@ -14,3 +14,4 @@ export default function AssistantDashboardPage() {
     </>
   );
 }
+

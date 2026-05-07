@@ -1,6 +1,6 @@
 "use client";
 
-import { TailAdminDashboard } from "@/components/dashboard/tailadmin-dashboard";
+import { TailAdminDashboard } from "@/components/admin/tailadmin-dashboard";
 import { useDashboardStats } from "@/hooks/use-dashboard-stats";
 
 export default function AdminDashboardPage() {
@@ -14,3 +14,4 @@ export default function AdminDashboardPage() {
     </>
   );
 }
+

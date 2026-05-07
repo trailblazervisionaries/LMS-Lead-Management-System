@@ -1,6 +1,6 @@
 "use client";
 
-import { SectionPage } from "@/components/dashboard/section-page";
+import { SectionPage } from "@/components/assistants/section-page";
 
 export default function AssistantProfilePage() {
   return (
@@ -12,3 +12,5 @@ export default function AssistantProfilePage() {
     </>
   );
 }
+
+

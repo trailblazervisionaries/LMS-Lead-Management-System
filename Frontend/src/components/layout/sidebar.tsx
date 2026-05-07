@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { UserRole } from "@/types/auth";
+import { UserRole } from "@/types/auth/auth";
 import { cn } from "@/lib/cn";
 
 interface SidebarProps {
@@ -188,3 +188,4 @@ export function Sidebar({ role, isCollapsed, isMobileOpen, onCloseMobile }: Side
     </>
   );
 }
+

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserRole } from "@/types/auth";
+import { UserRole } from "@/types/auth/auth";
 import { cn } from "@/lib/cn";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { useAuthStore } from "@/store/auth-store";
@@ -169,3 +169,4 @@ export function Header({ role, isSidebarCollapsed, onToggleSidebar }: HeaderProp
     </header>
   );
 }
+
