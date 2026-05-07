@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useCreateAssistant } from "@/hooks/use-create-assistant";
+import { useCreateAssistant } from "@/hooks/admin/use-create-assistant";
 import { createAssistantSchema, CreateAssistantSchemaValues } from "@/lib/validators/user-management";
 import { AssistantUser, CreateAssistantPayload } from "@/types/assistants/user-management";
 
@@ -197,5 +197,6 @@ export default function AdminUserManagementPage() {
     </>
   );
 }
+
 
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { Card } from "@/components/ui/card";
-import { useAdminProfile } from "@/hooks/use-admin-profile";
+import { useAdminProfile } from "@/hooks/admin/use-admin-profile";
 
 function getImageUrl(profileImage: string | null) {
   if (!profileImage) {
@@ -154,3 +154,4 @@ export default function AdminProfilePage() {
     </>
   );
 }
+

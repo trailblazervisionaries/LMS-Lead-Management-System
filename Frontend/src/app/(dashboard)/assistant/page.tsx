@@ -1,10 +1,10 @@
 "use client";
 
 import { AssistantDashboard } from "@/components/assistants/assistant-dashboard";
-import { useDashboardStats } from "@/hooks/use-dashboard-stats";
+import { useDashboardStats } from "@/hooks/assistant/use-dashboard-stats";
 
 export default function AssistantDashboardPage() {
-  const { data, isLoading, isError } = useDashboardStats("assistant");
+  const { data, isLoading, isError } = useDashboardStats();
 
   return (
     <>
@@ -14,4 +14,5 @@ export default function AssistantDashboardPage() {
     </>
   );
 }
+
 

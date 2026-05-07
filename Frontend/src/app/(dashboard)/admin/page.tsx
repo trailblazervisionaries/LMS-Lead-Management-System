@@ -1,10 +1,10 @@
 "use client";
 
 import { TailAdminDashboard } from "@/components/admin/tailadmin-dashboard";
-import { useDashboardStats } from "@/hooks/use-dashboard-stats";
+import { useDashboardStats } from "@/hooks/admin/use-dashboard-stats";
 
 export default function AdminDashboardPage() {
-  const { data, isLoading, isError } = useDashboardStats("admin");
+  const { data, isLoading, isError } = useDashboardStats();
 
   return (
     <>
@@ -14,4 +14,5 @@ export default function AdminDashboardPage() {
     </>
   );
 }
+
 
