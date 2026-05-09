@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,6 +19,7 @@ export default function AdminUserManagementPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+  const [updateSuccessPopup, setUpdateSuccessPopup] = useState<string | null>(null);
   const [editingAssistant, setEditingAssistant] = useState<AssistantListItem | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const queryClient = useQueryClient();
@@ -80,7 +81,8 @@ export default function AdminUserManagementPage() {
 
     createAssistantMutation.mutate(payload, {
       onSuccess: (response) => {
-        setSubmitSuccess(response.message);
+        const successMessage = response.message || "Assistant created successfully.";
+        setSubmitSuccess(successMessage);
         reset();
         setCurrentPage(1);
         queryClient.invalidateQueries({ queryKey: ["assistants"] });
@@ -135,7 +137,9 @@ export default function AdminUserManagementPage() {
       { userId: editingAssistant.user_id, payload },
       {
         onSuccess: (response) => {
-          setSubmitSuccess(response.message || "Assistant updated successfully.");
+          const successMessage = response.message || "Assistant updated successfully.";
+          setSubmitSuccess(null);
+          setUpdateSuccessPopup("Assistant updated successfully.");
           closeEditModal();
           queryClient.invalidateQueries({ queryKey: ["assistants"] });
         },
@@ -153,15 +157,18 @@ export default function AdminUserManagementPage() {
   const startItem = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const endItem = totalCount === 0 ? 0 : Math.min(currentPage * PAGE_SIZE, totalCount);
 
+  useEffect(() => {
+    if (!updateSuccessPopup) return;
+    const timer = setTimeout(() => {
+      setUpdateSuccessPopup(null);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [updateSuccessPopup]);
+
   return (
     <>
       <section className="space-y-6">
-        {/* <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">User Management</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Create assistant accounts and manage team access from one place.
-          </p>
-        </div> */}
+      
 
         <Card className="rounded-2xl">
           <div className="mb-5">
@@ -358,6 +365,14 @@ export default function AdminUserManagementPage() {
         </Card>
       </section>
 
+      {updateSuccessPopup ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white px-5 py-4 text-center shadow-lg dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{updateSuccessPopup}</p>
+          </div>
+        </div>
+      ) : null}
+
       {editingAssistant ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
           <div className="w-full max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900">
@@ -446,6 +461,3 @@ export default function AdminUserManagementPage() {
     </>
   );
 }
-
-
-

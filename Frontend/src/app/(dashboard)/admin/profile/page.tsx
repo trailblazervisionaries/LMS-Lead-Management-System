@@ -44,12 +44,7 @@ export default function AdminProfilePage() {
   return (
     <>
       <section className="space-y-6">
-        {/* <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Profile</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            View account details and address information from your admin profile.
-          </p>
-        </div> */}
+        
 
         {isLoading ? (
           <Card className="rounded-2xl">
