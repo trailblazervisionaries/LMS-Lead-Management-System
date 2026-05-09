@@ -1,5 +1,10 @@
-import { CreateAssistantPayload, CreateAssistantResponse } from "@/types/assistants/user-management";
-import { AdminProfileResponse } from "@/types/admin/admin-profile";
+import {
+  AssistantListResponse,
+  CreateAssistantPayload,
+  CreateAssistantResponse,
+  UpdateAssistantResponse
+} from "@/types/assistants/user-management";
+import { AdminProfileResponse, UpdateAdminPayload, UpdateAdminResponse } from "@/types/admin/admin-profile";
 import api from "@/api/axios";
 import { getApiErrorMessage } from "@/utils/api-error";
 
@@ -37,12 +42,70 @@ export async function createAssistant(payload: CreateAssistantPayload): Promise<
   }
 }
 
+export async function getAssistants(page: number, size: number): Promise<AssistantListResponse> {
+  const token = getAdminToken();
+  if (!token) {
+    throw new Error("Admin authentication required. Please log in again.");
+  }
+
+  try {
+    const response = await api.get<AssistantListResponse>("/api/assistant/all", {
+      params: { page, size },
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, "Unable to fetch assistants"));
+  }
+}
+
+export async function updateAssistant(
+  userId: string,
+  payload: CreateAssistantPayload
+): Promise<UpdateAssistantResponse> {
+  const token = getAdminToken();
+  if (!token) {
+    throw new Error("Admin authentication required. Please log in again.");
+  }
+
+  try {
+    const response = await api.put<UpdateAssistantResponse>(`/api/assistant/update/${userId}`, payload, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, "Unable to update assistant"));
+  }
+}
+
 export async function getAdminProfile(): Promise<AdminProfileResponse> {
   try {
     const response = await api.get<AdminProfileResponse>("/api/admin/me");
     return response.data;
   } catch (error) {
     throw new Error(getApiErrorMessage(error, "Unable to fetch admin profile"));
+  }
+}
+
+export async function updateAdminProfile(payload: UpdateAdminPayload): Promise<UpdateAdminResponse> {
+  const token = getAdminToken();
+  if (!token) {
+    throw new Error("Admin authentication required. Please log in again.");
+  }
+
+  try {
+    const response = await api.put<UpdateAdminResponse>("/api/admin/update", payload, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, "Unable to update admin profile"));
   }
 }
 

@@ -19,3 +19,19 @@ export interface AdminProfileResponse {
   updated_at: string | null;
   address: AdminAddress | null;
 }
+
+export interface UpdateAdminPayload {
+  name: string;
+  role: "admin";
+  email: string;
+  address_line_1: string;
+  address_line_2: string;
+  city: string;
+  province: string;
+  country: string;
+  postal_code: string;
+}
+
+export interface UpdateAdminResponse {
+  message?: string;
+}

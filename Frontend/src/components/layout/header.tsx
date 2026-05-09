@@ -39,7 +39,7 @@ export function Header({ role, isSidebarCollapsed, onToggleSidebar }: HeaderProp
 
   const onOpenProfile = () => {
     setIsProfileOpen(false);
-    router.push(`/${role}/profile`);
+    router.push(role === "admin" ? "/admin/profile/edit" : `/${role}/profile`);
   };
 
   return (
