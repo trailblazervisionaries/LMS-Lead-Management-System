@@ -2,6 +2,8 @@
 
 import { type ChangeEvent, type DragEvent, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
+import api from "@/api/axios";
+import { getApiErrorMessage } from "@/utils/api-error";
 
 type BuilderFieldType = "text" | "email" | "number" | "tel" | "textarea" | "select" | "file";
 type FieldLayout = "half" | "full";
@@ -194,6 +196,55 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#39;");
 }
 
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getAdminToken() {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const tokenFromCookie = document.cookie
+    .split("; ")
+    .find((cookie) => cookie.startsWith("lms_token="))
+    ?.split("=")[1];
+
+  if (!tokenFromCookie) {
+    return null;
+  }
+
+  return decodeURIComponent(tokenFromCookie);
+}
+
+function resolveAllowedMimeTypes(accept: string) {
+  const EXTENSION_MIME: Record<string, string> = {
+    ".pdf": "application/pdf",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".doc": "application/msword",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  };
+
+  return accept
+    .split(",")
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean)
+    .map((part) => {
+      if (part.startsWith(".")) {
+        return EXTENSION_MIME[part] ?? "";
+      }
+      return part.includes("/") ? part : "";
+    })
+    .filter(Boolean);
+}
+
 export default function AdminLeadFormsPage() {
   const [formFields, setFormFields] = useState<FormBuilderField[]>([]);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
@@ -212,6 +263,9 @@ export default function AdminLeadFormsPage() {
     gradientFrom: "#EEF3EA",
     gradientTo: "#F9F6EF"
   });
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [templateSaveError, setTemplateSaveError] = useState<string | null>(null);
+  const [templateSaveSuccess, setTemplateSaveSuccess] = useState<string | null>(null);
 
   const selectedField = useMemo(
     () => formFields.find((field) => field.id === selectedFieldId) ?? null,
@@ -434,6 +488,112 @@ export default function AdminLeadFormsPage() {
     previewWindow.document.write(pageHtml);
     previewWindow.document.close();
     previewWindow.focus();
+  };
+
+  const saveTemplate = async () => {
+    if (!formFields.length) {
+      setTemplateSaveError("Please add at least one field before saving the template.");
+      setTemplateSaveSuccess(null);
+      return;
+    }
+
+    const token = getAdminToken();
+    if (!token) {
+      setTemplateSaveError("Admin authentication required. Please log in again.");
+      setTemplateSaveSuccess(null);
+      return;
+    }
+
+    const formName = contactPageStyle.pageTitle.trim() || "Contact Form";
+    const slug = slugify(formName) || "contact-form";
+    const formId = `${slug.replace(/-/g, "_")}_v1`;
+
+    const schema_definition = {
+      form_id: formId,
+      form_name: formName,
+      slug,
+      status: "draft",
+      version: 1,
+      layout: {
+        columns: 2,
+        field_spacing: 16
+      },
+      page_style: {
+        background_color: contactPageStyle.gradientFrom,
+        background_image_url: contactPageStyle.bannerImageUrl || ""
+      },
+      submit_button: {
+        text: submitButtonSettings.label || "Send",
+        color: submitButtonSettings.bgColor,
+        text_color: submitButtonSettings.textColor,
+        hover_color: submitButtonSettings.hoverColor,
+        hover_text_color: submitButtonSettings.textColor,
+        full_width: false
+      },
+      fields: formFields.map((field, index) => {
+        const validation: Record<string, unknown> = {};
+        if (field.type === "text" && field.required) {
+          validation.min_length = 2;
+          validation.max_length = 80;
+          validation.pattern = null;
+        }
+        if (field.type === "textarea") {
+          validation.max_length = 1000;
+        }
+        if (field.type === "file") {
+          validation.allowed_mime_types = resolveAllowedMimeTypes(field.accept);
+          validation.max_size_mb = 10;
+        }
+
+        const fieldPayload: Record<string, unknown> = {
+          id: field.id,
+          name: field.name,
+          type: field.type,
+          label: field.label,
+          placeholder: field.placeholder,
+          required: field.required,
+          order: index + 1,
+          width: field.layout,
+          default_value: "",
+          help_text: "",
+          validation
+        };
+
+        if (field.type === "select") {
+          fieldPayload.options = field.options;
+        }
+
+        return fieldPayload;
+      }),
+      meta: {
+        created_by: "admin_user_id",
+        updated_by: "admin_user_id"
+      }
+    };
+
+    setIsSavingTemplate(true);
+    setTemplateSaveError(null);
+    setTemplateSaveSuccess(null);
+
+    try {
+      const response = await api.post(
+        "/api/form/template",
+        { schema_definition },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      const successMessage =
+        (response.data as { message?: string } | undefined)?.message ?? "Lead form template saved successfully.";
+      setTemplateSaveSuccess(successMessage);
+    } catch (error) {
+      setTemplateSaveError(getApiErrorMessage(error, "Unable to save lead form template."));
+    } finally {
+      setIsSavingTemplate(false);
+    }
   };
 
   return (
@@ -838,14 +998,26 @@ export default function AdminLeadFormsPage() {
           <Card className="rounded-2xl p-5">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Live Preview</h3>
-              <button
-                type="button"
-                onClick={openPreviewPage}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                Preview Page
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={saveTemplate}
+                  disabled={isSavingTemplate}
+                  className="rounded-lg border border-brand-300 bg-brand-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70 dark:border-brand-700 dark:bg-brand-700 dark:hover:bg-brand-600"
+                >
+                  {isSavingTemplate ? "Saving..." : "Save Form Template"}
+                </button>
+                <button
+                  type="button"
+                  onClick={openPreviewPage}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Preview Page
+                </button>
+              </div>
             </div>
+            {templateSaveError ? <p className="mt-2 text-sm text-red-600">{templateSaveError}</p> : null}
+            {templateSaveSuccess ? <p className="mt-2 text-sm text-emerald-600">{templateSaveSuccess}</p> : null}
             <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700">
               <div
                 className="flex h-48 items-center justify-center bg-cover bg-center px-6 text-center"
