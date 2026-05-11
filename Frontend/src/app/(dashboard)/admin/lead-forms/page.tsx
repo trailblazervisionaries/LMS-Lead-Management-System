@@ -1,6 +1,6 @@
 "use client";
 
-import { type ChangeEvent, type DragEvent, useMemo, useState } from "react";
+import { type DragEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import api from "@/api/axios";
 import { getApiErrorMessage } from "@/utils/api-error";
@@ -38,6 +38,69 @@ interface ContactPageStyleSettings {
   bannerImageUrl: string;
   gradientFrom: string;
   gradientTo: string;
+}
+
+interface FormTemplateField {
+  id: string;
+  name?: string;
+  type?: string;
+  label?: string;
+  placeholder?: string;
+  required?: boolean;
+  order?: number;
+  width?: string;
+  default_value?: string;
+  help_text?: string;
+  validation?: Record<string, unknown>;
+}
+
+interface FormTemplateSchema {
+  form_id?: string;
+  form_name?: string;
+  slug?: string;
+  status?: string;
+  version?: number;
+  layout?: {
+    columns?: number;
+    field_spacing?: number;
+  };
+  page_style?: {
+    background_color?: string;
+    background_image_url?: string;
+  };
+  submit_button?: {
+    text?: string;
+    color?: string;
+    text_color?: string;
+    hover_color?: string;
+    hover_text_color?: string;
+    full_width?: boolean;
+  };
+  fields?: FormTemplateField[];
+  meta?: {
+    created_by?: string;
+    updated_by?: string;
+  };
+}
+
+interface FormTemplateItem {
+  id: string;
+  schema_definition?: FormTemplateSchema;
+  is_active: boolean;
+  created_at?: string;
+}
+
+interface FormTemplateDetails extends FormTemplateItem {
+  admin_id?: string;
+  updated_at?: string | null;
+}
+
+interface FormSetupDetails {
+  formId: string;
+  formName: string;
+  slug: string;
+  status: string;
+  version: string;
 }
 
 type DragPayload =
@@ -132,6 +195,10 @@ const FIELD_DEFAULTS: Record<BuilderFieldType, Omit<FormBuilderField, "id">> = {
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
+}
+
+function formatDateTime(value?: string | null) {
+  return value ? new Date(value).toLocaleString("en-US") : "-";
 }
 
 function createFieldId() {
@@ -249,8 +316,6 @@ export default function AdminLeadFormsPage() {
   const [formFields, setFormFields] = useState<FormBuilderField[]>([]);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [isSendSettingsOpen, setIsSendSettingsOpen] = useState(false);
-  const [isContactStyleOpen, setIsContactStyleOpen] = useState(false);
-  const [isSendHovered, setIsSendHovered] = useState(false);
   const [submitButtonSettings, setSubmitButtonSettings] = useState<SubmitButtonSettings>({
     label: "Send",
     bgColor: "#2563EB",
@@ -266,6 +331,22 @@ export default function AdminLeadFormsPage() {
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [templateSaveError, setTemplateSaveError] = useState<string | null>(null);
   const [templateSaveSuccess, setTemplateSaveSuccess] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<FormTemplateItem[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
+  const [templatesError, setTemplatesError] = useState<string | null>(null);
+  const [isTemplateDetailsOpen, setIsTemplateDetailsOpen] = useState(false);
+  const [isLoadingTemplateDetails, setIsLoadingTemplateDetails] = useState(false);
+  const [templateDetailsError, setTemplateDetailsError] = useState<string | null>(null);
+  const [templateDetails, setTemplateDetails] = useState<FormTemplateDetails | null>(null);
+  const [formSetup, setFormSetup] = useState<FormSetupDetails>({
+    formId: "contact_form_v1",
+    formName: "Contact Form",
+    slug: "contact-form",
+    status: "draft",
+    version: "1"
+  });
+  const [isFormBuilderOpen, setIsFormBuilderOpen] = useState(false);
+  const [formSetupError, setFormSetupError] = useState<string | null>(null);
 
   const selectedField = useMemo(
     () => formFields.find((field) => field.id === selectedFieldId) ?? null,
@@ -273,6 +354,106 @@ export default function AdminLeadFormsPage() {
   );
 
   const canvasRows = useMemo(() => buildRows(formFields), [formFields]);
+
+  const loadTemplates = useCallback(async () => {
+    const token = getAdminToken();
+    if (!token) {
+      setTemplatesError("Admin authentication required. Please log in again.");
+      setIsLoadingTemplates(false);
+      return;
+    }
+
+    setIsLoadingTemplates(true);
+    setTemplatesError(null);
+
+    try {
+      const response = await api.get<FormTemplateItem[]>("/api/form/templates", {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      setTemplates(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      setTemplatesError(getApiErrorMessage(error, "Unable to load lead form templates."));
+    } finally {
+      setIsLoadingTemplates(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadTemplates();
+  }, [loadTemplates]);
+
+  const resolveFormSetupValues = () => {
+    const formId = formSetup.formId.trim();
+    const formName = formSetup.formName.trim();
+    const slug = formSetup.slug.trim();
+    const status = formSetup.status.trim();
+    const version = Number(formSetup.version);
+
+    if (!formId || !formName || !slug || !status || !Number.isInteger(version) || version < 1) {
+      return null;
+    }
+
+    return {
+      form_id: formId,
+      form_name: formName,
+      slug,
+      status,
+      version
+    };
+  };
+
+  const createForm = () => {
+    const setupValues = resolveFormSetupValues();
+    if (!setupValues) {
+      setFormSetupError(
+        "Please fill required form details (form_id, form_name, slug, status, and version must be 1 or more)."
+      );
+      return;
+    }
+
+    setFormSetupError(null);
+    setTemplateSaveError(null);
+    setTemplateSaveSuccess(null);
+    setContactPageStyle((prev) => ({ ...prev, pageTitle: setupValues.form_name }));
+    setIsFormBuilderOpen(true);
+  };
+
+  const closeTemplateDetails = () => {
+    setIsTemplateDetailsOpen(false);
+    setIsLoadingTemplateDetails(false);
+    setTemplateDetailsError(null);
+    setTemplateDetails(null);
+  };
+
+  const openTemplateDetails = async (templateId: string) => {
+    setIsTemplateDetailsOpen(true);
+    setIsLoadingTemplateDetails(true);
+    setTemplateDetailsError(null);
+    setTemplateDetails(null);
+
+    const token = getAdminToken();
+    if (!token) {
+      setTemplateDetailsError("Admin authentication required. Please log in again.");
+      setIsLoadingTemplateDetails(false);
+      return;
+    }
+
+    try {
+      const response = await api.get<FormTemplateDetails>(`/api/form/template/${templateId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      setTemplateDetails(response.data);
+    } catch (error) {
+      setTemplateDetailsError(getApiErrorMessage(error, "Unable to load form template details."));
+    } finally {
+      setIsLoadingTemplateDetails(false);
+    }
+  };
 
   const updateField = (fieldId: string, updater: (field: FormBuilderField) => FormBuilderField) => {
     setFormFields((prev) => prev.map((field) => (field.id === fieldId ? updater(field) : field)));
@@ -347,19 +528,6 @@ export default function AdminLeadFormsPage() {
 
     moveField(payload.fieldId, formFields.length);
     setSelectedFieldId(payload.fieldId);
-  };
-
-  const handleBannerImageSelect = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
-      if (!result) return;
-      setContactPageStyle((prev) => ({ ...prev, bannerImageUrl: result }));
-    };
-    reader.readAsDataURL(file);
   };
 
   const openPreviewPage = () => {
@@ -497,6 +665,15 @@ export default function AdminLeadFormsPage() {
       return;
     }
 
+    const formSetupValues = resolveFormSetupValues();
+    if (!formSetupValues) {
+      setTemplateSaveError(
+        "Please fill required form details (form_id, form_name, slug, status, and version must be 1 or more)."
+      );
+      setTemplateSaveSuccess(null);
+      return;
+    }
+
     const token = getAdminToken();
     if (!token) {
       setTemplateSaveError("Admin authentication required. Please log in again.");
@@ -504,16 +681,12 @@ export default function AdminLeadFormsPage() {
       return;
     }
 
-    const formName = contactPageStyle.pageTitle.trim() || "Contact Form";
-    const slug = slugify(formName) || "contact-form";
-    const formId = `${slug.replace(/-/g, "_")}_v1`;
-
     const schema_definition = {
-      form_id: formId,
-      form_name: formName,
-      slug,
-      status: "draft",
-      version: 1,
+      form_id: formSetupValues.form_id,
+      form_name: formSetupValues.form_name,
+      slug: formSetupValues.slug,
+      status: formSetupValues.status,
+      version: formSetupValues.version,
       layout: {
         columns: 2,
         field_spacing: 16
@@ -589,6 +762,7 @@ export default function AdminLeadFormsPage() {
       const successMessage =
         (response.data as { message?: string } | undefined)?.message ?? "Lead form template saved successfully.";
       setTemplateSaveSuccess(successMessage);
+      void loadTemplates();
     } catch (error) {
       setTemplateSaveError(getApiErrorMessage(error, "Unable to save lead form template."));
     } finally {
@@ -599,6 +773,127 @@ export default function AdminLeadFormsPage() {
   return (
     <>
       <section className="space-y-6">
+        <Card className="rounded-2xl p-5">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Saved Lead Form Templates</h3>
+          {isLoadingTemplates ? <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Loading templates...</p> : null}
+          {templatesError ? <p className="mt-2 text-sm text-red-600">{templatesError}</p> : null}
+          {!isLoadingTemplates && !templatesError && !templates.length ? (
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">No lead form templates found.</p>
+          ) : null}
+          {!isLoadingTemplates && !templatesError && templates.length ? (
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+                <thead>
+                  <tr className="text-left text-slate-600 dark:text-slate-300">
+                    <th className="px-3 py-2 font-semibold">Form Name</th>
+                    <th className="px-3 py-2 font-semibold">Slug</th>
+                    <th className="px-3 py-2 font-semibold">Status</th>
+                    <th className="px-3 py-2 font-semibold">Fields</th>
+                    <th className="px-3 py-2 font-semibold">Active</th>
+                    <th className="px-3 py-2 font-semibold">Created</th>
+                    <th className="px-3 py-2 font-semibold">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {templates.map((template) => (
+                    <tr
+                      key={template.id}
+                      onClick={() => void openTemplateDetails(template.id)}
+                      className="cursor-pointer text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800/40"
+                    >
+                      <td className="px-3 py-2">{template.schema_definition?.form_name ?? "-"}</td>
+                      <td className="px-3 py-2">{template.schema_definition?.slug ?? "-"}</td>
+                      <td className="px-3 py-2">{template.schema_definition?.status ?? "-"}</td>
+                      <td className="px-3 py-2">{template.schema_definition?.fields?.length ?? 0}</td>
+                      <td className="px-3 py-2">{template.is_active ? "Yes" : "No"}</td>
+                      <td className="px-3 py-2">{formatDateTime(template.created_at)}</td>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void openTemplateDetails(template.id);
+                          }}
+                          className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                        >
+                          View Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </Card>
+
+        <Card className="rounded-2xl p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Create Lead Form</h3>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Fill form details before opening the builder.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={createForm}
+              className="rounded-lg border border-brand-300 bg-brand-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 dark:border-brand-700 dark:bg-brand-700 dark:hover:bg-brand-600"
+            >
+              Create Form
+            </button>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <label className="block text-sm">
+              <span className="mb-1 block text-slate-600 dark:text-slate-300">Form ID</span>
+              <input
+                value={formSetup.formId}
+                onChange={(event) => setFormSetup((prev) => ({ ...prev, formId: event.target.value }))}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block text-slate-600 dark:text-slate-300">Form Name</span>
+              <input
+                value={formSetup.formName}
+                onChange={(event) => {
+                  const nextFormName = event.target.value;
+                  const nextSlug = formSetup.slug.trim() ? formSetup.slug : slugify(nextFormName);
+                  setFormSetup((prev) => ({ ...prev, formName: nextFormName, slug: nextSlug }));
+                }}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block text-slate-600 dark:text-slate-300">Slug</span>
+              <input
+                value={formSetup.slug}
+                onChange={(event) => setFormSetup((prev) => ({ ...prev, slug: event.target.value }))}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block text-slate-600 dark:text-slate-300">Status</span>
+              <input
+                value={formSetup.status}
+                onChange={(event) => setFormSetup((prev) => ({ ...prev, status: event.target.value }))}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block text-slate-600 dark:text-slate-300">Version</span>
+              <input
+                type="number"
+                min={1}
+                value={formSetup.version}
+                onChange={(event) => setFormSetup((prev) => ({ ...prev, version: event.target.value }))}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+          </div>
+          {formSetupError ? <p className="mt-3 text-sm text-red-600">{formSetupError}</p> : null}
+        </Card>
+
         {/* <div>
           <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Lead Form Builder</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -626,7 +921,8 @@ export default function AdminLeadFormsPage() {
           </div>
         ) : null} */}
 
-        <div className="grid gap-4 xl:grid-cols-[280px_1fr_320px]">
+        {isFormBuilderOpen ? (
+          <div className="grid gap-4 xl:grid-cols-[280px_1fr_320px]">
           <Card className="rounded-2xl p-5">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Field Library</h3>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Drag a field into the form canvas.</p>
@@ -917,214 +1213,219 @@ export default function AdminLeadFormsPage() {
                 </div>
               ) : null}
             </div>
-            <div className="mt-6 rounded-xl border border-[#2b4868]">
+            <div className="mt-6 flex items-center justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setIsContactStyleOpen((prev) => !prev)}
-                className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition hover:bg-[#0a1b3d]"
+                onClick={saveTemplate}
+                disabled={isSavingTemplate}
+                className="rounded-lg border border-brand-300 bg-brand-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70 dark:border-brand-700 dark:bg-brand-700 dark:hover:bg-brand-600"
               >
-                <span className="text-sm font-semibold text-slate-100">Contact Page Style</span>
-                <svg
-                  viewBox="0 0 24 24"
-                  className={["h-4 w-4 text-slate-400 transition-transform", isContactStyleOpen ? "rotate-180" : ""].join(" ")}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
+                {isSavingTemplate ? "Saving..." : "Save Form Template"}
               </button>
-              {isContactStyleOpen ? (
-                <div className="space-y-3 border-t border-[#2b4868] px-3 pb-3 pt-3">
-                  <label className="block text-sm">
-                    <span className="mb-1 block text-slate-300">Page Title</span>
-                    <input
-                      value={contactPageStyle.pageTitle}
-                      onChange={(event) =>
-                        setContactPageStyle((prev) => ({ ...prev, pageTitle: event.target.value }))
-                      }
-                      className="w-full rounded-lg border border-[#2b4868] bg-[#0a1b3d] px-3 py-2 text-slate-100 outline-none focus:border-[#4b709c]"
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    <span className="mb-1 block text-slate-300">Select Banner Image</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleBannerImageSelect}
-                      className="mb-2 w-full rounded-lg border border-[#2b4868] bg-[#0a1b3d] px-3 py-2 text-sm text-slate-100 outline-none file:mr-3 file:rounded-md file:border-0 file:bg-[#10254a] file:px-3 file:py-1.5 file:text-slate-200"
-                    />
-                    <span className="mb-1 block text-slate-300">Or Banner Image URL</span>
-                    <input
-                      value={contactPageStyle.bannerImageUrl}
-                      onChange={(event) =>
-                        setContactPageStyle((prev) => ({ ...prev, bannerImageUrl: event.target.value }))
-                      }
-                      placeholder="https://..."
-                      className="w-full rounded-lg border border-[#2b4868] bg-[#0a1b3d] px-3 py-2 text-slate-100 outline-none focus:border-[#4b709c]"
-                    />
-                  </label>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="block text-sm">
-                      <span className="mb-1 block text-slate-300">Gradient Start (Hex)</span>
-                      <input
-                        type="color"
-                        value={contactPageStyle.gradientFrom}
-                        onChange={(event) =>
-                          setContactPageStyle((prev) => ({ ...prev, gradientFrom: event.target.value }))
-                        }
-                        className="h-10 w-full cursor-pointer rounded-lg border border-[#2b4868] bg-[#0a1b3d] p-1"
-                      />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="mb-1 block text-slate-300">Gradient End (Hex)</span>
-                      <input
-                        type="color"
-                        value={contactPageStyle.gradientTo}
-                        onChange={(event) =>
-                          setContactPageStyle((prev) => ({ ...prev, gradientTo: event.target.value }))
-                        }
-                        className="h-10 w-full cursor-pointer rounded-lg border border-[#2b4868] bg-[#0a1b3d] p-1"
-                      />
-                    </label>
+            </div>
+            {templateSaveError ? <p className="mt-2 text-sm text-red-600">{templateSaveError}</p> : null}
+            {templateSaveSuccess ? <p className="mt-2 text-sm text-emerald-600">{templateSaveSuccess}</p> : null}
+          </Card>
+          </div>
+        ) : null}
+      </section>
+
+      {isTemplateDetailsOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
+          onClick={closeTemplateDetails}
+        >
+          <div
+            className="w-full max-w-[1240px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-6 py-5 dark:border-slate-700 dark:from-slate-900 dark:to-slate-900">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                    {templateDetails?.schema_definition?.form_name ?? "Lead Form Details"}
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    Template details overview for admin.
+                  </p>
+                  {templateDetails ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                        ID: {templateDetails.id}
+                      </span>
+                      <span className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                        Slug: {templateDetails.schema_definition?.slug ?? "-"}
+                      </span>
+                      <span className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                        Status: {templateDetails.schema_definition?.status ?? "-"}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={closeTemplateDetails}
+                  className="inline-flex h-9 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="max-h-[78vh] overflow-y-auto p-6">
+              {isLoadingTemplateDetails ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
+                  Loading template details...
+                </div>
+              ) : null}
+              {templateDetailsError ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+                  {templateDetailsError}
+                </div>
+              ) : null}
+
+              {!isLoadingTemplateDetails && !templateDetailsError && templateDetails ? (
+                <div className="space-y-6">
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Template Id</p>
+                      <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">{templateDetails.id}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Admin Id</p>
+                      <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">{templateDetails.admin_id ?? "-"}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Active</p>
+                      <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">
+                        {templateDetails.is_active ? "Yes" : "No"}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Created</p>
+                      <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">
+                        {formatDateTime(templateDetails.created_at)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Updated</p>
+                      <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">
+                        {formatDateTime(templateDetails.updated_at)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Fields</p>
+                      <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">
+                        {templateDetails.schema_definition?.fields?.length ?? 0}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                    <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">Form Configuration</h4>
+                    <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                      <div className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
+                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Form ID</p>
+                        <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">{templateDetails.schema_definition?.form_id ?? "-"}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
+                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Form Name</p>
+                        <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">{templateDetails.schema_definition?.form_name ?? "-"}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
+                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Slug</p>
+                        <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">{templateDetails.schema_definition?.slug ?? "-"}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
+                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</p>
+                        <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">{templateDetails.schema_definition?.status ?? "-"}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
+                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Version</p>
+                        <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">{templateDetails.schema_definition?.version ?? "-"}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
+                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Columns</p>
+                        <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">{templateDetails.schema_definition?.layout?.columns ?? "-"}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700 sm:col-span-2">
+                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Field Spacing</p>
+                        <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">{templateDetails.schema_definition?.layout?.field_spacing ?? "-"}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                    <div className="mb-4 flex items-center justify-between gap-2">
+                      <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">Fields</h4>
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        Total {templateDetails.schema_definition?.fields?.length ?? 0}
+                      </span>
+                    </div>
+                    {!templateDetails.schema_definition?.fields?.length ? (
+                      <p className="text-sm text-slate-500 dark:text-slate-400">No fields available in this template.</p>
+                    ) : (
+                      <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+                        <table className="min-w-full text-sm">
+                          <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/80">
+                            <tr className="text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                              <th className="px-3 py-3 font-semibold">Order</th>
+                              <th className="px-3 py-3 font-semibold">Label</th>
+                              <th className="px-3 py-3 font-semibold">Name</th>
+                              <th className="px-3 py-3 font-semibold">Type</th>
+                              <th className="px-3 py-3 font-semibold">Width</th>
+                              <th className="px-3 py-3 font-semibold">Required</th>
+                              <th className="px-3 py-3 font-semibold">Placeholder</th>
+                              <th className="px-3 py-3 font-semibold">Validation</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                            {templateDetails.schema_definition.fields.map((field) => (
+                              <tr key={field.id} className="align-top text-slate-700 dark:text-slate-200">
+                                <td className="px-3 py-3 font-medium">{field.order ?? "-"}</td>
+                                <td className="px-3 py-3">{field.label ?? "-"}</td>
+                                <td className="px-3 py-3 font-mono text-xs">{field.name ?? "-"}</td>
+                                <td className="px-3 py-3">
+                                  <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                                    {field.type ?? "-"}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-3">
+                                  <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                                    {field.width ?? "-"}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-3">
+                                  <span
+                                    className={[
+                                      "rounded-full px-2 py-1 text-xs font-semibold",
+                                      field.required
+                                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                        : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                    ].join(" ")}
+                                  >
+                                    {field.required ? "Required" : "Optional"}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-3">{field.placeholder || "-"}</td>
+                                <td className="px-3 py-3">
+                                  <pre className="max-h-28 max-w-[260px] overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-700 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-200">
+                                    {JSON.stringify(field.validation ?? {}, null, 2)}
+                                  </pre>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : null}
             </div>
-          </Card>
+          </div>
         </div>
-
-        <div>
-          <Card className="rounded-2xl p-5">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Live Preview</h3>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={saveTemplate}
-                  disabled={isSavingTemplate}
-                  className="rounded-lg border border-brand-300 bg-brand-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70 dark:border-brand-700 dark:bg-brand-700 dark:hover:bg-brand-600"
-                >
-                  {isSavingTemplate ? "Saving..." : "Save Form Template"}
-                </button>
-                <button
-                  type="button"
-                  onClick={openPreviewPage}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                >
-                  Preview Page
-                </button>
-              </div>
-            </div>
-            {templateSaveError ? <p className="mt-2 text-sm text-red-600">{templateSaveError}</p> : null}
-            {templateSaveSuccess ? <p className="mt-2 text-sm text-emerald-600">{templateSaveSuccess}</p> : null}
-            <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700">
-              <div
-                className="flex h-48 items-center justify-center bg-cover bg-center px-6 text-center"
-                style={{
-                  backgroundImage: `url(${contactPageStyle.bannerImageUrl || DEFAULT_BANNER_IMAGE})`
-                }}
-              >
-                <div>
-                  <p className="text-sm font-semibold tracking-wide text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.75)]">Home | Contact</p>
-                  <h4 className="mt-2 text-4xl font-bold uppercase tracking-tight text-white">
-                    {contactPageStyle.pageTitle || "CONTACT"}
-                  </h4>
-                </div>
-              </div>
-
-              <div
-                className="p-6"
-                style={{
-                  background: `linear-gradient(135deg, ${contactPageStyle.gradientFrom}, ${contactPageStyle.gradientTo})`
-                }}
-              >
-                <div
-                  className="mx-auto max-w-3xl rounded-2xl p-5 shadow-sm"
-                  style={{
-                    background: `linear-gradient(135deg, ${contactPageStyle.gradientFrom}, ${contactPageStyle.gradientTo})`
-                  }}
-                >
-                  <h5 className="mb-4 text-2xl font-semibold text-slate-900 dark:text-slate-100">
-                    Leave us a message
-                  </h5>
-                  <div className="space-y-3">
-                    {canvasRows.map((row, rowIndex) => (
-                      <div key={`preview-row-${rowIndex}`} className="grid gap-3 md:grid-cols-2">
-                        {row.items.map(({ field }) => (
-                          <label
-                            key={field.id}
-                            className={[
-                              "block text-sm text-slate-700 dark:text-slate-200",
-                              field.layout === "full" ? "md:col-span-2" : ""
-                            ].join(" ")}
-                          >
-                            <span className="mb-1 block font-medium">
-                              {field.label} {field.required ? "*" : ""}
-                            </span>
-
-                            {field.type === "textarea" ? (
-                              <textarea
-                                rows={3}
-                                placeholder={field.placeholder}
-                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-900"
-                              />
-                            ) : null}
-
-                            {field.type === "select" ? (
-                              <select className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-900">
-                                <option value="">Select an option</option>
-                                {field.options.map((option) => (
-                                  <option key={option} value={option}>
-                                    {option}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : null}
-
-                            {field.type === "file" ? (
-                              <input
-                                type="file"
-                                accept={field.accept}
-                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:file:bg-slate-800 dark:file:text-slate-200"
-                              />
-                            ) : null}
-
-                            {field.type !== "textarea" && field.type !== "select" && field.type !== "file" ? (
-                              <input
-                                type={field.type}
-                                placeholder={field.placeholder}
-                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-900"
-                              />
-                            ) : null}
-                          </label>
-                        ))}
-                      </div>
-                    ))}
-
-                    <button
-                      type="button"
-                      onMouseEnter={() => setIsSendHovered(true)}
-                      onMouseLeave={() => setIsSendHovered(false)}
-                      className="mt-2 inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-semibold transition-colors"
-                      style={{
-                        backgroundColor: isSendHovered ? submitButtonSettings.hoverColor : submitButtonSettings.bgColor,
-                        color: submitButtonSettings.textColor
-                      }}
-                    >
-                      {submitButtonSettings.label || "Send"}
-                    </button>
-
-                    {!formFields.length ? (
-                      <p className="text-sm text-slate-500 dark:text-slate-400">No fields in preview yet.</p>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </section>
+      ) : null}
     </>
   );
 }

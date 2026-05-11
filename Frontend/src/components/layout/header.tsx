@@ -57,25 +57,25 @@ export function Header({ role, isSidebarCollapsed, onToggleSidebar }: HeaderProp
             <path d="M4 17h10" />
           </svg>
         </button>
-        <div className="group hidden h-11 max-w-2xl flex-1 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 shadow-sm transition focus-within:border-brand-300 focus-within:ring-4 focus-within:ring-brand-100/60 dark:border-slate-700 dark:bg-slate-900 dark:focus-within:border-brand-700 dark:focus-within:ring-brand-900/30 sm:flex">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition group-focus-within:bg-brand-50 group-focus-within:text-brand-600 dark:bg-slate-800 dark:text-slate-300 dark:group-focus-within:bg-brand-900/40 dark:group-focus-within:text-brand-300">
+        {/* <div className="group hidden h-11 max-w-2xl flex-1 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 shadow-sm transition focus-within:border-brand-300 focus-within:ring-4 focus-within:ring-brand-100/60 dark:border-slate-700 dark:bg-slate-900 dark:focus-within:border-brand-700 dark:focus-within:ring-brand-900/30 sm:flex"> */}
+          {/* <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition group-focus-within:bg-brand-50 group-focus-within:text-brand-600 dark:bg-slate-800 dark:text-slate-300 dark:group-focus-within:bg-brand-900/40 dark:group-focus-within:text-brand-300">
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="7" />
               <path d="M20 20l-3.5-3.5" />
             </svg>
-          </span>
-          <span className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+          </span> */}
+          {/* <span className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-300">
             Deals
           </span>
           <svg viewBox="0 0 24 24" className="h-3 w-3 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="m9 6 6 6-6 6" />
-          </svg>
-          <input
+          </svg> */}
+          {/* <input
             className="w-full bg-transparent text-sm font-medium text-slate-700 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-slate-100"
             placeholder="Search deals, customer, ID, or type command..."
             aria-label="Search dashboard"
-          />
-        </div>
+          /> */}
+        {/* </div> */}
       </div>
       <div className="relative flex items-center gap-2" ref={profileRef}>
         <ThemeToggle />
