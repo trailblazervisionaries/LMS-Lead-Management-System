@@ -1,7 +1,10 @@
 import {
+  ActivateAssistantResponse,
   AssistantListResponse,
   CreateAssistantPayload,
   CreateAssistantResponse,
+  DeactivateAssistantResponse,
+  DeleteAssistantResponse,
   UpdateAssistantResponse
 } from "@/types/assistants/user-management";
 import { AdminProfileResponse, UpdateAdminPayload, UpdateAdminResponse } from "@/types/admin/admin-profile";
@@ -79,6 +82,60 @@ export async function updateAssistant(
     return response.data;
   } catch (error) {
     throw new Error(getApiErrorMessage(error, "Unable to update assistant"));
+  }
+}
+
+export async function deleteAssistant(userId: string): Promise<DeleteAssistantResponse> {
+  const token = getAdminToken();
+  if (!token) {
+    throw new Error("Admin authentication required. Please log in again.");
+  }
+
+  try {
+    const response = await api.delete<DeleteAssistantResponse>(`/api/assistant/delete/${userId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, "Unable to delete assistant"));
+  }
+}
+
+export async function activateAssistant(userId: string): Promise<ActivateAssistantResponse> {
+  const token = getAdminToken();
+  if (!token) {
+    throw new Error("Admin authentication required. Please log in again.");
+  }
+
+  try {
+    const response = await api.post<ActivateAssistantResponse>(`/api/assistant/activate/${userId}`, null, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, "Unable to activate assistant"));
+  }
+}
+
+export async function deactivateAssistant(userId: string): Promise<DeactivateAssistantResponse> {
+  const token = getAdminToken();
+  if (!token) {
+    throw new Error("Admin authentication required. Please log in again.");
+  }
+
+  try {
+    const response = await api.post<DeactivateAssistantResponse>(`/api/assistant/deactivate/${userId}`, null, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, "Unable to deactivate assistant"));
   }
 }
 

@@ -49,6 +49,7 @@ interface FormTemplateField {
   required?: boolean;
   order?: number;
   width?: string;
+  options?: string[];
   default_value?: string;
   help_text?: string;
   validation?: Record<string, unknown>;
@@ -271,6 +272,28 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+function resolveBuilderFieldType(type?: string): BuilderFieldType {
+  const normalized = (type ?? "text").toLowerCase();
+  if (normalized === "phone" || normalized === "telephone") {
+    return "tel";
+  }
+  if (normalized === "text" || normalized === "email" || normalized === "number" || normalized === "tel" || normalized === "textarea" || normalized === "select" || normalized === "file") {
+    return normalized;
+  }
+  return "text";
+}
+
+function getStatusBadgeClasses(status?: string) {
+  const value = (status ?? "").toLowerCase().trim();
+  if (value === "published" || value === "active") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300";
+  }
+  if (value === "draft") {
+    return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300";
+  }
+  return "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200";
+}
+
 function getAdminToken() {
   if (typeof document === "undefined") {
     return null;
@@ -334,6 +357,8 @@ export default function AdminLeadFormsPage() {
   const [templates, setTemplates] = useState<FormTemplateItem[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [templatesError, setTemplatesError] = useState<string | null>(null);
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [isTemplateDetailsOpen, setIsTemplateDetailsOpen] = useState(false);
   const [isLoadingTemplateDetails, setIsLoadingTemplateDetails] = useState(false);
   const [templateDetailsError, setTemplateDetailsError] = useState<string | null>(null);
@@ -417,6 +442,7 @@ export default function AdminLeadFormsPage() {
     setFormSetupError(null);
     setTemplateSaveError(null);
     setTemplateSaveSuccess(null);
+    setEditingTemplateId(null);
     setContactPageStyle((prev) => ({ ...prev, pageTitle: setupValues.form_name }));
     setIsFormBuilderOpen(true);
   };
@@ -452,6 +478,119 @@ export default function AdminLeadFormsPage() {
       setTemplateDetailsError(getApiErrorMessage(error, "Unable to load form template details."));
     } finally {
       setIsLoadingTemplateDetails(false);
+    }
+  };
+
+  const deleteTemplate = async (templateId: string) => {
+    const token = getAdminToken();
+    if (!token) {
+      setTemplatesError("Admin authentication required. Please log in again.");
+      return;
+    }
+
+    const shouldDelete = window.confirm("Are you sure you want to delete this form template?");
+    if (!shouldDelete) {
+      return;
+    }
+
+    setDeletingTemplateId(templateId);
+    setTemplatesError(null);
+
+    try {
+      await api.delete(`/api/form/template/${templateId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      setTemplates((prev) => prev.filter((template) => template.id !== templateId));
+      if (templateDetails?.id === templateId) {
+        closeTemplateDetails();
+      }
+    } catch (error) {
+      setTemplatesError(getApiErrorMessage(error, "Unable to delete lead form template."));
+    } finally {
+      setDeletingTemplateId(null);
+    }
+  };
+
+  const editTemplate = async (templateId: string) => {
+    const token = getAdminToken();
+    if (!token) {
+      setTemplatesError("Admin authentication required. Please log in again.");
+      return;
+    }
+
+    setTemplateSaveError(null);
+    setTemplateSaveSuccess(null);
+    setTemplatesError(null);
+
+    try {
+      const response = await api.get<FormTemplateDetails>(`/api/form/template/${templateId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const details = response.data;
+      const schema = details?.schema_definition;
+      if (!schema) {
+        setTemplatesError("Unable to load form template details for editing.");
+        return;
+      }
+
+      setFormSetup({
+        formId: schema.form_id ?? templateId,
+        formName: schema.form_name ?? "",
+        slug: schema.slug ?? "",
+        status: schema.status ?? "draft",
+        version: String(schema.version ?? 1)
+      });
+
+      const nextFields: FormBuilderField[] = [...(schema.fields ?? [])]
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map((field, index) => {
+          const fieldType = resolveBuilderFieldType(field.type);
+          const defaults = FIELD_DEFAULTS[fieldType];
+          const validation = field.validation ?? {};
+          const allowedMimeTypes = Array.isArray((validation as { allowed_mime_types?: unknown }).allowed_mime_types)
+            ? ((validation as { allowed_mime_types?: unknown[] }).allowed_mime_types ?? [])
+                .filter((value): value is string => typeof value === "string")
+                .join(",")
+            : "";
+
+          return {
+            id: field.id || createFieldId(),
+            type: fieldType,
+            label: field.label ?? defaults.label,
+            name: field.name ?? `${defaults.name}_${index + 1}`,
+            placeholder: field.placeholder ?? defaults.placeholder,
+            required: Boolean(field.required),
+            options: fieldType === "select" ? (Array.isArray(field.options) ? field.options : defaults.options) : [],
+            accept: fieldType === "file" ? (allowedMimeTypes || defaults.accept) : "",
+            layout: field.width === "full" ? "full" : "half"
+          };
+        });
+
+      setFormFields(nextFields);
+      setSelectedFieldId(nextFields[0]?.id ?? null);
+      setSubmitButtonSettings((prev) => ({
+        ...prev,
+        label: schema.submit_button?.text ?? prev.label,
+        bgColor: schema.submit_button?.color ?? prev.bgColor,
+        hoverColor: schema.submit_button?.hover_color ?? prev.hoverColor,
+        textColor: schema.submit_button?.text_color ?? prev.textColor
+      }));
+      setContactPageStyle((prev) => ({
+        ...prev,
+        pageTitle: schema.form_name ?? prev.pageTitle,
+        bannerImageUrl: schema.page_style?.background_image_url ?? prev.bannerImageUrl,
+        gradientFrom: schema.page_style?.background_color ?? prev.gradientFrom
+      }));
+      setEditingTemplateId(templateId);
+      setIsFormBuilderOpen(true);
+    } catch (error) {
+      setTemplatesError(getApiErrorMessage(error, "Unable to load form template details for editing."));
     }
   };
 
@@ -749,8 +888,8 @@ export default function AdminLeadFormsPage() {
     setTemplateSaveSuccess(null);
 
     try {
-      const response = await api.post(
-        "/api/form/template",
+      const response = await api.put(
+        `/api/form/template/${editingTemplateId || formSetupValues.form_id}`,
         { schema_definition },
         {
           headers: {
@@ -773,41 +912,136 @@ export default function AdminLeadFormsPage() {
   return (
     <>
       <section className="space-y-6">
-        <Card className="rounded-2xl p-5">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Saved Lead Form Templates</h3>
-          {isLoadingTemplates ? <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Loading templates...</p> : null}
-          {templatesError ? <p className="mt-2 text-sm text-red-600">{templatesError}</p> : null}
-          {!isLoadingTemplates && !templatesError && !templates.length ? (
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">No lead form templates found.</p>
-          ) : null}
-          {!isLoadingTemplates && !templatesError && templates.length ? (
-            <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
-                <thead>
-                  <tr className="text-left text-slate-600 dark:text-slate-300">
-                    <th className="px-3 py-2 font-semibold">Form Name</th>
-                    <th className="px-3 py-2 font-semibold">Slug</th>
-                    <th className="px-3 py-2 font-semibold">Status</th>
-                    <th className="px-3 py-2 font-semibold">Fields</th>
-                    <th className="px-3 py-2 font-semibold">Active</th>
-                    <th className="px-3 py-2 font-semibold">Created</th>
-                    <th className="px-3 py-2 font-semibold">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+        <Card className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 p-0 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-4 dark:border-slate-800 dark:from-slate-900 dark:to-slate-900">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">Saved Lead Form Templates</h3>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage existing templates and continue editing anytime.</p>
+              </div>
+              <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                Total: {templates.length}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-4 sm:p-5">
+            {isLoadingTemplates ? <p className="text-sm text-slate-500 dark:text-slate-400">Loading templates...</p> : null}
+            {templatesError ? <p className="text-sm text-red-600">{templatesError}</p> : null}
+            {!isLoadingTemplates && !templatesError && !templates.length ? (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-400">
+                No lead form templates found.
+              </div>
+            ) : null}
+
+            {!isLoadingTemplates && !templatesError && templates.length ? (
+              <>
+                <div className="hidden overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 lg:block">
+                  <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                    <thead className="bg-slate-50/80 dark:bg-slate-900/60">
+                      <tr className="text-left text-slate-600 dark:text-slate-300">
+                        <th className="px-4 py-3 font-semibold">Form Name</th>
+                        <th className="px-4 py-3 font-semibold">Slug</th>
+                        <th className="px-4 py-3 font-semibold">Status</th>
+                        <th className="px-4 py-3 font-semibold">Fields</th>
+                        <th className="px-4 py-3 font-semibold">Active</th>
+                        <th className="px-4 py-3 font-semibold">Created</th>
+                        <th className="px-4 py-3 text-right font-semibold">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                      {templates.map((template) => (
+                        <tr
+                          key={template.id}
+                          onClick={() => void openTemplateDetails(template.id)}
+                          className="cursor-pointer text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800/30"
+                        >
+                          <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{template.schema_definition?.form_name ?? "-"}</td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{template.schema_definition?.slug ?? "-"}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClasses(template.schema_definition?.status)}`}>
+                              {template.schema_definition?.status ?? "-"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">{template.schema_definition?.fields?.length ?? 0}</td>
+                          <td className="px-4 py-3">{template.is_active ? "Yes" : "No"}</td>
+                          <td className="px-4 py-3">{formatDateTime(template.created_at)}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void openTemplateDetails(template.id);
+                                }}
+                                className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                              >
+                                View Details
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void editTemplate(template.id);
+                                }}
+                                className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                disabled={deletingTemplateId === template.id}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void deleteTemplate(template.id);
+                                }}
+                                className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400 dark:hover:bg-red-950/30"
+                              >
+                                {deletingTemplateId === template.id ? "Deleting..." : "Delete"}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="space-y-3 lg:hidden">
                   {templates.map((template) => (
-                    <tr
+                    <div
                       key={template.id}
                       onClick={() => void openTemplateDetails(template.id)}
-                      className="cursor-pointer text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800/40"
+                      className="cursor-pointer rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 dark:hover:bg-slate-800/40"
                     >
-                      <td className="px-3 py-2">{template.schema_definition?.form_name ?? "-"}</td>
-                      <td className="px-3 py-2">{template.schema_definition?.slug ?? "-"}</td>
-                      <td className="px-3 py-2">{template.schema_definition?.status ?? "-"}</td>
-                      <td className="px-3 py-2">{template.schema_definition?.fields?.length ?? 0}</td>
-                      <td className="px-3 py-2">{template.is_active ? "Yes" : "No"}</td>
-                      <td className="px-3 py-2">{formatDateTime(template.created_at)}</td>
-                      <td className="px-3 py-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            {template.schema_definition?.form_name ?? "-"}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{template.schema_definition?.slug ?? "-"}</p>
+                        </div>
+                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getStatusBadgeClasses(template.schema_definition?.status)}`}>
+                          {template.schema_definition?.status ?? "-"}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-slate-50 p-2.5 text-xs dark:bg-slate-800/60">
+                        <div>
+                          <p className="text-slate-500 dark:text-slate-400">Fields</p>
+                          <p className="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">{template.schema_definition?.fields?.length ?? 0}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500 dark:text-slate-400">Active</p>
+                          <p className="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">{template.is_active ? "Yes" : "No"}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500 dark:text-slate-400">Created</p>
+                          <p className="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">{formatDateTime(template.created_at)}</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={(event) => {
@@ -818,13 +1052,34 @@ export default function AdminLeadFormsPage() {
                         >
                           View Details
                         </button>
-                      </td>
-                    </tr>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void editTemplate(template.id);
+                          }}
+                          className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          disabled={deletingTemplateId === template.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void deleteTemplate(template.id);
+                          }}
+                          className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400 dark:hover:bg-red-950/30"
+                        >
+                          {deletingTemplateId === template.id ? "Deleting..." : "Delete"}
+                        </button>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
+                </div>
+              </>
+            ) : null}
+          </div>
         </Card>
 
         <Card className="rounded-2xl p-5">
@@ -922,11 +1177,11 @@ export default function AdminLeadFormsPage() {
         ) : null} */}
 
         {isFormBuilderOpen ? (
-          <div className="grid gap-4 xl:grid-cols-[280px_1fr_320px]">
-          <Card className="rounded-2xl p-5">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Field Library</h3>
+          <div className="grid gap-4 lg:grid-cols-12 xl:gap-5">
+          <Card className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm lg:col-span-3 lg:p-5 dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Field Library</h3>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Drag a field into the form canvas.</p>
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 space-y-3 lg:max-h-[66vh] lg:overflow-y-auto lg:pr-1">
               {FIELD_LIBRARY.map((template) => (
                 <button
                   key={template.type}
@@ -938,7 +1193,7 @@ export default function AdminLeadFormsPage() {
                       JSON.stringify({ source: "library", fieldType: template.type } satisfies DragPayload)
                     );
                   }}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-brand-300 hover:bg-brand-50/40 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-700 dark:hover:bg-brand-900/20"
+                  className="w-full rounded-xl border border-slate-200 bg-white p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-brand-300 hover:bg-brand-50/40 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-700 dark:hover:bg-brand-900/20"
                 >
                   <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{template.title}</p>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{template.description}</p>
@@ -947,18 +1202,18 @@ export default function AdminLeadFormsPage() {
             </div>
           </Card>
 
-          <Card className="rounded-2xl p-5">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Form Canvas</h3>
+          <Card className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm lg:col-span-6 lg:p-5 dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Form Canvas</h3>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Arrange your rows here. Use half/full layout from Field Settings.
             </p>
             <div
-              className="mt-4 min-h-72 space-y-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-3 dark:border-slate-700 dark:bg-slate-900/30"
+              className="mt-4 min-h-72 space-y-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-3.5 dark:border-slate-700 dark:bg-slate-900/30"
               onDragOver={(event) => event.preventDefault()}
               onDrop={handleDropAtEnd}
             >
               {!formFields.length ? (
-                <div className="flex min-h-52 items-center justify-center rounded-lg bg-white text-sm text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
+                <div className="flex min-h-52 items-center justify-center rounded-xl bg-white text-center text-sm text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
                   Drop fields here to build your lead form.
                 </div>
               ) : (
@@ -978,7 +1233,7 @@ export default function AdminLeadFormsPage() {
                         onDrop={(event) => handleDrop(event, index)}
                         onClick={() => setSelectedFieldId(field.id)}
                         className={[
-                          "cursor-move rounded-xl border p-3 transition",
+                          "cursor-move rounded-xl border p-3.5 shadow-sm transition",
                           field.layout === "full" ? "md:col-span-2" : "",
                           selectedFieldId === field.id
                             ? "border-brand-500 bg-brand-50/40 dark:border-brand-400 dark:bg-brand-900/20"
@@ -1013,13 +1268,13 @@ export default function AdminLeadFormsPage() {
             </div>
           </Card>
 
-          <Card className="rounded-2xl border-[#2b4868] bg-[#071634] p-5 text-slate-100">
-            <h3 className="text-2xl font-semibold text-slate-100">Field Settings</h3>
+          <Card className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-900 p-4 text-slate-100 shadow-sm lg:col-span-3 lg:sticky lg:top-4 lg:p-5 dark:border-slate-800">
+            <h3 className="text-2xl font-semibold tracking-tight text-slate-100">Field Settings</h3>
             <p className="mt-1 text-sm text-slate-300">
               Select a field in canvas and configure label, type, and row layout.
             </p>
             {!selectedField ? (
-              <div className="mt-4 rounded-xl border border-[#2b4868] bg-[#0a1b3d] p-4 text-sm text-slate-300">
+              <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900/60 p-4 text-sm text-slate-300">
                 No field selected.
               </div>
             ) : (
@@ -1039,7 +1294,7 @@ export default function AdminLeadFormsPage() {
                         accept: newType === "file" ? (field.accept || defaults.accept) : ""
                       }));
                     }}
-                    className="w-full rounded-lg border border-[#2b4868] bg-[#0a1b3d] px-3 py-2 text-slate-100 outline-none focus:border-[#4b709c]"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-100 outline-none focus:border-sky-500"
                   >
                     {FIELD_LIBRARY.map((fieldType) => (
                       <option key={fieldType.type} value={fieldType.type}>
@@ -1056,7 +1311,7 @@ export default function AdminLeadFormsPage() {
                     onChange={(event) =>
                       updateField(selectedField.id, (field) => ({ ...field, label: event.target.value }))
                     }
-                    className="w-full rounded-lg border border-[#2b4868] bg-[#0a1b3d] px-3 py-2 text-slate-100 outline-none placeholder:text-slate-400 focus:border-[#4b709c]"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-100 outline-none placeholder:text-slate-400 focus:border-sky-500"
                   />
                 </label>
 
@@ -1067,7 +1322,7 @@ export default function AdminLeadFormsPage() {
                     onChange={(event) =>
                       updateField(selectedField.id, (field) => ({ ...field, name: event.target.value }))
                     }
-                    className="w-full rounded-lg border border-[#2b4868] bg-[#0a1b3d] px-3 py-2 text-slate-100 outline-none placeholder:text-slate-400 focus:border-[#4b709c]"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-100 outline-none placeholder:text-slate-400 focus:border-sky-500"
                   />
                 </label>
 
@@ -1081,7 +1336,7 @@ export default function AdminLeadFormsPage() {
                         layout: event.target.value as FieldLayout
                       }))
                     }
-                    className="w-full rounded-lg border border-[#2b4868] bg-[#0a1b3d] px-3 py-2 text-slate-100 outline-none focus:border-[#4b709c]"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-100 outline-none focus:border-sky-500"
                   >
                     <option value="half">Half width (two fields in one row)</option>
                     <option value="full">Full width (single field row)</option>
@@ -1096,7 +1351,7 @@ export default function AdminLeadFormsPage() {
                       onChange={(event) =>
                         updateField(selectedField.id, (field) => ({ ...field, placeholder: event.target.value }))
                       }
-                      className="w-full rounded-lg border border-[#2b4868] bg-[#0a1b3d] px-3 py-2 text-slate-100 outline-none placeholder:text-slate-400 focus:border-[#4b709c]"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-100 outline-none placeholder:text-slate-400 focus:border-sky-500"
                     />
                   </label>
                 ) : null}
@@ -1110,7 +1365,7 @@ export default function AdminLeadFormsPage() {
                         updateField(selectedField.id, (field) => ({ ...field, accept: event.target.value }))
                       }
                       placeholder=".pdf,.doc,.docx,.png,.jpg"
-                      className="w-full rounded-lg border border-[#2b4868] bg-[#0a1b3d] px-3 py-2 text-slate-100 outline-none placeholder:text-slate-400 focus:border-[#4b709c]"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-100 outline-none placeholder:text-slate-400 focus:border-sky-500"
                     />
                   </label>
                 ) : null}
@@ -1130,7 +1385,7 @@ export default function AdminLeadFormsPage() {
                             .filter(Boolean)
                         }))
                       }
-                      className="w-full rounded-lg border border-[#2b4868] bg-[#0a1b3d] px-3 py-2 text-slate-100 outline-none placeholder:text-slate-400 focus:border-[#4b709c]"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-100 outline-none placeholder:text-slate-400 focus:border-sky-500"
                     />
                   </label>
                 ) : null}
@@ -1142,17 +1397,17 @@ export default function AdminLeadFormsPage() {
                     onChange={(event) =>
                       updateField(selectedField.id, (field) => ({ ...field, required: event.target.checked }))
                     }
-                    className="h-4 w-4 rounded border-[#4d5f78] bg-[#0a1b3d] text-brand-600 focus:ring-brand-500"
+                    className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-brand-600 focus:ring-brand-500"
                   />
                   Required field
                 </label>
               </div>
             )}
-            <div className="mt-6 rounded-xl border border-[#2b4868]">
+            <div className="mt-6 rounded-xl border border-slate-700 bg-slate-900/40">
               <button
                 type="button"
                 onClick={() => setIsSendSettingsOpen((prev) => !prev)}
-                className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition hover:bg-[#0a1b3d]"
+                className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition hover:bg-slate-800/70"
               >
                 <span className="text-sm font-semibold text-slate-100">Send Button Settings</span>
                 <svg
@@ -1166,7 +1421,7 @@ export default function AdminLeadFormsPage() {
                 </svg>
               </button>
               {isSendSettingsOpen ? (
-                <div className="space-y-3 border-t border-[#2b4868] px-3 pb-3 pt-3">
+                <div className="space-y-3 border-t border-slate-700 px-3 pb-3 pt-3">
                   <label className="block text-sm">
                     <span className="mb-1 block text-slate-300">Button Label</span>
                     <input
@@ -1174,7 +1429,7 @@ export default function AdminLeadFormsPage() {
                       onChange={(event) =>
                         setSubmitButtonSettings((prev) => ({ ...prev, label: event.target.value }))
                       }
-                      className="w-full rounded-lg border border-[#2b4868] bg-[#0a1b3d] px-3 py-2 text-slate-100 outline-none focus:border-[#4b709c]"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-100 outline-none focus:border-sky-500"
                     />
                   </label>
                   <label className="block text-sm">
@@ -1185,7 +1440,7 @@ export default function AdminLeadFormsPage() {
                       onChange={(event) =>
                         setSubmitButtonSettings((prev) => ({ ...prev, bgColor: event.target.value }))
                       }
-                      className="h-10 w-full cursor-pointer rounded-lg border border-[#2b4868] bg-[#0a1b3d] p-1"
+                      className="h-10 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-900/70 p-1"
                     />
                   </label>
                   <label className="block text-sm">
@@ -1196,7 +1451,7 @@ export default function AdminLeadFormsPage() {
                       onChange={(event) =>
                         setSubmitButtonSettings((prev) => ({ ...prev, hoverColor: event.target.value }))
                       }
-                      className="h-10 w-full cursor-pointer rounded-lg border border-[#2b4868] bg-[#0a1b3d] p-1"
+                      className="h-10 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-900/70 p-1"
                     />
                   </label>
                   <label className="block text-sm">
@@ -1207,18 +1462,18 @@ export default function AdminLeadFormsPage() {
                       onChange={(event) =>
                         setSubmitButtonSettings((prev) => ({ ...prev, textColor: event.target.value }))
                       }
-                      className="h-10 w-full cursor-pointer rounded-lg border border-[#2b4868] bg-[#0a1b3d] p-1"
+                      className="h-10 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-900/70 p-1"
                     />
                   </label>
                 </div>
               ) : null}
             </div>
-            <div className="mt-6 flex items-center justify-end gap-2">
+            <div className="mt-6 flex items-center justify-end gap-2 border-t border-slate-700/70 pt-4">
               <button
                 type="button"
                 onClick={saveTemplate}
                 disabled={isSavingTemplate}
-                className="rounded-lg border border-brand-300 bg-brand-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70 dark:border-brand-700 dark:bg-brand-700 dark:hover:bg-brand-600"
+                className="w-full rounded-lg border border-brand-400/70 bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70 lg:w-auto dark:border-brand-700 dark:bg-brand-700 dark:hover:bg-brand-600"
               >
                 {isSavingTemplate ? "Saving..." : "Save Form Template"}
               </button>

@@ -35,6 +35,18 @@ export interface UpdateAssistantResponse {
   message: string;
 }
 
+export interface DeleteAssistantResponse {
+  message: string;
+}
+
+export interface ActivateAssistantResponse {
+  message: string;
+}
+
+export interface DeactivateAssistantResponse {
+  message: string;
+}
+
 export interface AssistantListItem {
   user_id: string;
   name: string;
@@ -55,5 +67,3 @@ export interface AssistantListResponse {
   size: number;
   total_pages: number;
 }
-
-
