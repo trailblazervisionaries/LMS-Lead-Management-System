@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { jwtDecode } from "jwt-decode";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ interface LeadRecord {
   source: string;
   status: string;
   createdAt: string;
+  assignedAssistantId: string;
   assignedAssistantName: string;
   assignedAssistantEmail: string;
 }
@@ -73,6 +75,34 @@ interface AdminLeadsResponse {
   total_pages: number;
 }
 
+interface AssistantListItem {
+  user_id: string;
+  name: string;
+  email?: string;
+  is_active?: boolean;
+  is_deleted?: boolean;
+}
+
+interface AssistantNameIdResponseItem {
+  user_id: string;
+  name: string;
+}
+
+interface AssistantListResponse {
+  items: AssistantListItem[];
+  total_count: number;
+  page: number;
+  size: number;
+  total_pages: number;
+}
+
+interface AuthTokenPayload {
+  sub?: string;
+  user_id?: string;
+  id?: string;
+  email?: string;
+}
+
 const LEAD_FIELDS: LeadFieldDefinition[] = [
   { key: "name", label: "Name", placeholder: "Lead Name", aliases: ["name", "full name", "lead name", "customer name"] },
   { key: "email", label: "Email", placeholder: "Email", aliases: ["email", "email address", "mail"] },
@@ -116,6 +146,35 @@ function getAuthToken() {
   }
 
   return decodeURIComponent(tokenFromCookie);
+}
+
+function getAdminUserIdFromToken(token: string): string | null {
+  try {
+    const decoded = jwtDecode<AuthTokenPayload>(token);
+    const userId = decoded.user_id?.trim() || decoded.id?.trim();
+    if (userId) return userId;
+
+    const sub = decoded.sub?.trim();
+    if (sub && !sub.includes("@")) return sub;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function getAdminUserIdCandidatesFromToken(token: string): string[] {
+  try {
+    const decoded = jwtDecode<AuthTokenPayload>(token);
+    return Array.from(
+      new Set(
+        [decoded.user_id?.trim(), decoded.id?.trim(), decoded.sub?.trim()]
+          .filter((value): value is string => Boolean(value))
+          .filter((value) => !value.includes("@"))
+      )
+    );
+  } catch {
+    return [];
+  }
 }
 
 function resolveLeadFieldsFromTemplate(template: FormTemplateItem | null): LeadFieldDefinition[] {
@@ -237,6 +296,7 @@ function mapAdminLeadToRecord(lead: AdminLeadItem): LeadRecord {
     source: source || "-",
     status: status || "-",
     createdAt: lead.created_at ? new Date(lead.created_at).toLocaleDateString() : "-",
+    assignedAssistantId: lead.assigned_assistant?.assistant_id?.trim() || "",
     assignedAssistantName: lead.assigned_assistant?.name?.trim() || "Unassigned",
     assignedAssistantEmail: lead.assigned_assistant?.email?.trim() || "-"
   };
@@ -253,7 +313,7 @@ export default function AdminTotalLeadsPage() {
   const [leadFields, setLeadFields] = useState<LeadFieldDefinition[]>(LEAD_FIELDS);
   const [templateFieldNameMap, setTemplateFieldNameMap] = useState<Partial<Record<LeadFieldKey, string>>>({});
   const [selectedLeadFields, setSelectedLeadFields] = useState<LeadFieldKey[]>(LEAD_FIELDS.map((field) => field.key));
-  const [activeTemplateId, setActiveTemplateId] = useState<string>(DEFAULT_TEMPLATE_ID);
+  const [activeTemplateId, setActiveTemplateId] = useState<string>("");
   const [activeTemplateFormId, setActiveTemplateFormId] = useState<string>("");
   const [filterField, setFilterField] = useState<LeadFieldKey>("name");
   const [filterQuery, setFilterQuery] = useState("");
@@ -263,6 +323,10 @@ export default function AdminTotalLeadsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [isLoadingLeads, setIsLoadingLeads] = useState(false);
   const [isAssigningLeads, setIsAssigningLeads] = useState(false);
+  const [assistantOptions, setAssistantOptions] = useState<AssistantListItem[]>([]);
+  const [isLoadingAssistants, setIsLoadingAssistants] = useState(false);
+  const [leadAssignmentDraft, setLeadAssignmentDraft] = useState<Record<string, string>>({});
+  const [isForceAssigningLeadId, setIsForceAssigningLeadId] = useState<string>("");
 
   const totalLeads = totalCount;
   const visibleFieldDefinitions = useMemo(
@@ -277,6 +341,11 @@ export default function AdminTotalLeadsPage() {
     [leadFields, selectedLeadFields]
   );
   const hasSearchableFields = searchableFieldOptions.length > 0;
+  const activeAssistantOptions = useMemo(
+    () => assistantOptions.filter((assistant) => assistant.is_active !== false && !assistant.is_deleted),
+    [assistantOptions]
+  );
+  const hasAssistantOptions = activeAssistantOptions.length > 0;
 
   const loadAdminLeads = useCallback(async (page: number) => {
     const token = getAuthToken();
@@ -305,6 +374,56 @@ export default function AdminTotalLeadsPage() {
     }
   }, []);
 
+  const loadAssistants = useCallback(async () => {
+    const token = getAuthToken();
+    if (!token) {
+      setError("Admin authentication required. Please log in again.");
+      return;
+    }
+
+    setIsLoadingAssistants(true);
+    try {
+      const adminUserId = getAdminUserIdFromToken(token);
+      let mappedAssistants: AssistantListItem[] = [];
+
+      if (adminUserId) {
+        const response = await api.get<AssistantNameIdResponseItem[]>(
+          `/api/assistant/allassistant/name/id/${encodeURIComponent(adminUserId)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+
+        const assistantItems = Array.isArray(response.data) ? response.data : [];
+        mappedAssistants = assistantItems.map((assistant) => ({
+          user_id: assistant.user_id,
+          name: assistant.name,
+          email: "",
+          is_active: true,
+          is_deleted: false
+        }));
+      }
+
+      if (!mappedAssistants.length) {
+        const fallbackResponse = await api.get<AssistantListResponse>("/api/assistant/all", {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+        });
+        const fallbackItems = Array.isArray(fallbackResponse.data.items) ? fallbackResponse.data.items : [];
+        mappedAssistants = fallbackItems.filter((assistant) => !assistant.is_deleted);
+      }
+
+      setAssistantOptions(mappedAssistants);
+    } catch (apiError) {
+      setError(getApiErrorMessage(apiError, "Unable to fetch assistants."));
+    } finally {
+      setIsLoadingAssistants(false);
+    }
+  }, []);
+
   useEffect(() => {
     const token = getAuthToken();
     if (!token) {
@@ -327,7 +446,7 @@ export default function AdminTotalLeadsPage() {
         );
         setLeadFields(resolveLeadFieldsFromTemplate(activeTemplate));
         setTemplateFieldNameMap(resolveTemplateFieldNameMap(activeTemplate));
-        setActiveTemplateId(activeTemplate?.id ?? DEFAULT_TEMPLATE_ID);
+        setActiveTemplateId(activeTemplate?.id ?? "");
         setActiveTemplateFormId(activeTemplate?.schema_definition?.form_id ?? "");
         if (resolvedTemplateFields.length) {
           setTemplateFields(resolvedTemplateFields);
@@ -340,7 +459,7 @@ export default function AdminTotalLeadsPage() {
       } catch {
         setLeadFields(LEAD_FIELDS);
         setTemplateFieldNameMap({});
-        setActiveTemplateId(DEFAULT_TEMPLATE_ID);
+        setActiveTemplateId("");
         setActiveTemplateFormId("");
         const fallbackFields = getFallbackTemplateFields();
         setTemplateFields(fallbackFields);
@@ -354,6 +473,10 @@ export default function AdminTotalLeadsPage() {
   useEffect(() => {
     void loadAdminLeads(currentPage);
   }, [currentPage, loadAdminLeads]);
+
+  useEffect(() => {
+    void loadAssistants();
+  }, [loadAssistants]);
 
   useEffect(() => {
     const allowedKeys = leadFields.map((field) => field.key);
@@ -391,6 +514,18 @@ export default function AdminTotalLeadsPage() {
     setManualLeadValues((prev) => ({ ...prev, [fieldName]: value }));
   };
 
+  useEffect(() => {
+    setLeadAssignmentDraft((prev) => {
+      const next: Record<string, string> = { ...prev };
+      leads.forEach((lead) => {
+        if (!(lead.id in next)) {
+          next[lead.id] = "";
+        }
+      });
+      return next;
+    });
+  }, [leads]);
+
   const addManualLead = async () => {
     setError("");
     setMessage("");
@@ -423,9 +558,11 @@ export default function AdminTotalLeadsPage() {
       }
     };
 
-    const templateIdCandidates = Array.from(
-      new Set([activeTemplateId, activeTemplateFormId, DEFAULT_TEMPLATE_ID].filter(Boolean))
-    );
+    const templateIdCandidates = Array.from(new Set([activeTemplateId].filter(Boolean)));
+    if (!templateIdCandidates.length) {
+      setError("Lead form template not found or inactive. Please activate a template and try again.");
+      return;
+    }
 
     let lastError: unknown = null;
     let submitted = false;
@@ -484,6 +621,60 @@ export default function AdminTotalLeadsPage() {
     }
   };
 
+  const forceAssignLead = async (leadId: string) => {
+    setError("");
+    setMessage("");
+
+    const assistantId = leadAssignmentDraft[leadId]?.trim() ?? "";
+    if (!assistantId) {
+      setError("Please select an assistant before assigning this lead.");
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      setError("Admin authentication required. Please log in again.");
+      return;
+    }
+
+    setIsForceAssigningLeadId(leadId);
+    try {
+      const headers = {
+        Authorization: `Bearer ${token}`
+      };
+
+      const assignmentPayloadCandidates = [
+        { assistant_id: assistantId, lead_id: leadId },
+        { assistant_user_id: assistantId, lead_id: leadId },
+        { assistantId, leadId }
+      ];
+
+      let assignmentUpdated = false;
+      let lastError: unknown = null;
+
+      for (const payload of assignmentPayloadCandidates) {
+        try {
+          await api.post("/api/lead/admin/force-assign", payload, { headers });
+          assignmentUpdated = true;
+          break;
+        } catch (apiError) {
+          lastError = apiError;
+        }
+      }
+
+      if (!assignmentUpdated) {
+        throw lastError ?? new Error("Unable to update lead assignment.");
+      }
+
+      await loadAdminLeads(currentPage);
+      setMessage("Lead assistant updated successfully.");
+    } catch (apiError) {
+      setError(getApiErrorMessage(apiError, "Unable to update lead assignment."));
+    } finally {
+      setIsForceAssigningLeadId("");
+    }
+  };
+
   const handleExcelUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -492,100 +683,90 @@ export default function AdminTotalLeadsPage() {
 
     if (!file) return;
 
+    const token = getAuthToken();
+    if (!token) {
+      setError("Admin authentication required. Please log in again.");
+      return;
+    }
+
+    const adminUserId = getAdminUserIdFromToken(token);
+    if (!adminUserId) {
+      setError("Unable to identify admin user id. Please log in again.");
+      return;
+    }
+
+    const templateId = activeTemplateId?.trim();
+    if (!templateId) {
+      setError("Lead form template not found or inactive. Please activate a template and try again.");
+      return;
+    }
+
     try {
-      const XLSX = await import("xlsx");
-      const fileData = await file.arrayBuffer();
-      const workbook = XLSX.read(fileData, { type: "array" });
-      const firstSheetName = workbook.SheetNames[0];
+      const endpoint = `${API_BASE_URL}/api/lead/upload/${encodeURIComponent(templateId)}/${encodeURIComponent(adminUserId)}`;
+      const formData = new FormData();
+      formData.append("file", file, file.name);
 
-      if (!firstSheetName) {
-        setError("The uploaded file does not contain any sheet.");
-        return;
+      const uploadResponse = await fetch(endpoint, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!uploadResponse.ok) {
+        let detailMessage = `Upload failed with status ${uploadResponse.status}`;
+        try {
+          const errorPayload = (await uploadResponse.json()) as {
+            detail?: unknown;
+            message?: unknown;
+          };
+
+          if (Array.isArray(errorPayload.detail) && errorPayload.detail.length) {
+            const firstError = errorPayload.detail[0] as { msg?: unknown; loc?: unknown };
+            const messageText = typeof firstError?.msg === "string" ? firstError.msg : "Validation error";
+            const locationText = Array.isArray(firstError?.loc) ? firstError.loc.join(" -> ") : "request";
+            detailMessage = `${locationText}: ${messageText}`;
+          } else if (typeof errorPayload.detail === "string") {
+            detailMessage = errorPayload.detail;
+          } else if (typeof errorPayload.message === "string") {
+            detailMessage = errorPayload.message;
+          }
+        } catch {
+          // Keep status-based fallback message.
+        }
+
+        throw new Error(detailMessage);
       }
 
-      const worksheet = workbook.Sheets[firstSheetName];
-      const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: "" });
-
-      if (!rawRows.length) {
-        setError("No rows found in the uploaded sheet.");
+      setCurrentPage(1);
+      await loadAdminLeads(1);
+      setMessage(`Leads imported successfully from ${file.name}.`);
+    } catch (apiError) {
+      if (apiError instanceof Error && apiError.message) {
+        setError(apiError.message);
         return;
       }
-
-      const importedLeads: LeadRecord[] = rawRows
-        .map((row, index) => {
-          const normalizedRow = Object.fromEntries(
-            Object.entries(row).map(([key, value]) => [normalizeKey(key), String(value ?? "").trim()])
-          ) as Record<string, string>;
-
-          const name = extractMappedValue(
-            normalizedRow,
-            leadFields.find((field) => field.key === "name")?.aliases ??
-              LEAD_FIELDS.find((field) => field.key === "name")?.aliases ??
-              []
-          );
-          const email = extractMappedValue(
-            normalizedRow,
-            leadFields.find((field) => field.key === "email")?.aliases ??
-              LEAD_FIELDS.find((field) => field.key === "email")?.aliases ??
-              []
-          );
-          const phone = extractMappedValue(
-            normalizedRow,
-            leadFields.find((field) => field.key === "phone")?.aliases ??
-              LEAD_FIELDS.find((field) => field.key === "phone")?.aliases ??
-              []
-          );
-          const company = extractMappedValue(
-            normalizedRow,
-            leadFields.find((field) => field.key === "company")?.aliases ??
-              LEAD_FIELDS.find((field) => field.key === "company")?.aliases ??
-              []
-          );
-          const source = extractMappedValue(
-            normalizedRow,
-            leadFields.find((field) => field.key === "source")?.aliases ??
-              LEAD_FIELDS.find((field) => field.key === "source")?.aliases ??
-              []
-          );
-          const status = extractMappedValue(
-            normalizedRow,
-            leadFields.find((field) => field.key === "status")?.aliases ??
-              LEAD_FIELDS.find((field) => field.key === "status")?.aliases ??
-              []
-          );
-
-          if (!name && !email && !phone) return null;
-
-          return {
-            id: `LD-${Date.now()}-${index + 1}`,
-            name: name || "-",
-            email: email || "-",
-            phone: phone || "-",
-            company: company || "-",
-            source: source || "Excel Import",
-            status: status || "New",
-            createdAt: new Date().toLocaleDateString()
-          } as LeadRecord;
-        })
-        .filter((lead): lead is LeadRecord => Boolean(lead));
-
-      if (!importedLeads.length) {
-        setError("No valid lead rows found. Make sure your sheet has Name, Email or Phone columns.");
-        return;
+      if (axios.isAxiosError(apiError)) {
+        const detail = (apiError.response?.data as { detail?: unknown } | undefined)?.detail;
+        if (Array.isArray(detail) && detail.length) {
+          const firstError = detail[0] as { msg?: unknown; loc?: unknown };
+          const messageText = typeof firstError?.msg === "string" ? firstError.msg : "Validation error";
+          const locationText = Array.isArray(firstError?.loc) ? firstError.loc.join(" -> ") : "request";
+          setError(`${locationText}: ${messageText}`);
+          return;
+        }
       }
-
-      setLeads((prev) => [...importedLeads, ...prev]);
-      setMessage(`${importedLeads.length} leads imported from ${file.name}.`);
-    } catch {
-      setError("Unable to read this file. Please upload a valid Excel or CSV file.");
+      setError(getApiErrorMessage(apiError, "Unable to upload this file."));
     }
   };
 
   return (
     <>
-      <section className="space-y-6 lg:space-y-8">
-        <Card className="overflow-hidden rounded-3xl border-slate-200/80 bg-gradient-to-br from-white via-slate-50 to-cyan-50 p-0 shadow-md dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
-          <div className="flex flex-col gap-5 px-5 py-6 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+      <section className="mx-auto w-full space-y-4 lg:space-y-5">
+        <Card className="overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-slate-50 to-cyan-50 p-0 shadow-sm dark:border-slate-700/80 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
+          <div className="flex flex-col gap-4 px-4 py-5 sm:px-5 lg:flex-row lg:items-center lg:justify-between lg:px-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-700 dark:text-brand-300">Lead Operations</p>
               <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Total Leads</h2>
@@ -593,8 +774,8 @@ export default function AdminTotalLeadsPage() {
                 Add leads manually from template fields or import sheets to manage your pipeline in one place.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-              <div className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900/75">
                 <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Total</p>
                 <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{totalLeads}</p>
               </div>
@@ -614,9 +795,9 @@ export default function AdminTotalLeadsPage() {
           </div>
         </Card>
 
-        <Card className="rounded-3xl border-slate-200/80 p-5 shadow-sm dark:border-slate-700 sm:p-6">
+        <Card className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-700/80 dark:bg-slate-900/70 sm:p-5">
           <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Lead Structure</p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-2.5 flex flex-wrap gap-2">
             {templateFields
               .filter((field) => field.name)
               .map((field) => (
@@ -630,13 +811,13 @@ export default function AdminTotalLeadsPage() {
           </div>
         </Card>
 
-        <div className="grid gap-6 xl:grid-cols-2">
-          <Card className="rounded-3xl border-slate-200/80 p-6 shadow-sm dark:border-slate-700 sm:p-7">
+        <div className="grid gap-4 xl:grid-cols-2">
+          <Card className="rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-sm dark:border-slate-700/80 dark:bg-slate-900/70 sm:p-6">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Add Lead Manually</h3>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               This form is generated from your active lead template fields.
             </p>
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <div className="mt-4 grid gap-3.5 sm:grid-cols-2">
               {templateFields
                 .filter((field) => field.name)
                 .map((field) => {
@@ -703,19 +884,19 @@ export default function AdminTotalLeadsPage() {
                   );
                 })}
             </div>
-            <div className="mt-5">
+            <div className="mt-4">
               <Button type="button" onClick={addManualLead}>
                 Add Lead
               </Button>
             </div>
           </Card>
 
-          <Card className="rounded-3xl border-slate-200/80 p-6 shadow-sm dark:border-slate-700 sm:p-7">
+          <Card className="h-full rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-sm dark:border-slate-700/80 dark:bg-slate-900/70 sm:p-6">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Import Leads From Excel</h3>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
               Upload `.xlsx`, `.xls` or `.csv`. We auto-map common columns like Name, Email, Phone, Company, Source and Status.
             </p>
-            <label className="mt-5 flex cursor-pointer items-center justify-center rounded-2xl border border-dashed border-slate-300 px-4 py-10 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/50">
+            <label className="mt-4 flex min-h-[180px] cursor-pointer items-center justify-center rounded-xl border border-dashed border-slate-300 px-4 py-8 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/50">
               <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleExcelUpload} />
               Click to upload Excel/CSV file
             </label>
@@ -733,8 +914,8 @@ export default function AdminTotalLeadsPage() {
           </p>
         ) : null}
 
-        <Card className="rounded-3xl border-slate-200/80 p-0 shadow-sm dark:border-slate-700">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 px-5 py-4 dark:border-slate-700 sm:px-6">
+        <Card className="rounded-2xl border border-slate-200/80 bg-white/90 p-0 shadow-sm dark:border-slate-700/80 dark:bg-slate-900/70">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 px-4 py-4 dark:border-slate-700 sm:px-5">
             <div>
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Leads List</h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">Search, filter and monitor incoming leads</p>
@@ -749,7 +930,7 @@ export default function AdminTotalLeadsPage() {
             </div>
           </div>
 
-          <div className="p-5 sm:p-6">
+          <div className="p-4 sm:p-5">
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="space-y-1 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Search By
@@ -802,7 +983,7 @@ export default function AdminTotalLeadsPage() {
               )}
             </div>
 
-            <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-700">
+            <div className="mt-3.5 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
               <table className="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-slate-700">
                 <thead className="bg-slate-50 dark:bg-slate-800/60">
                   <tr>
@@ -838,6 +1019,61 @@ export default function AdminTotalLeadsPage() {
                       <td className="px-4 py-3 text-slate-700 dark:text-slate-200">
                         <p className="font-medium text-slate-900 dark:text-slate-100">{lead.assignedAssistantName}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">{lead.assignedAssistantEmail}</p>
+                        <div className="mt-2 flex flex-col gap-2">
+                          {(() => {
+                            const selectedAssistantId = leadAssignmentDraft[lead.id] ?? "";
+                            const currentAssistantId = lead.assignedAssistantId ?? "";
+                            const hasAssignmentChanged = selectedAssistantId !== currentAssistantId;
+
+                            return (
+                              <>
+                          <select
+                            value={selectedAssistantId}
+                            onChange={(event) =>
+                              setLeadAssignmentDraft((prev) => ({
+                                ...prev,
+                                [lead.id]: event.target.value
+                              }))
+                            }
+                            disabled={isLoadingAssistants || !hasAssistantOptions}
+                            className="h-9 w-full min-w-[180px] rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-700 outline-none transition focus:border-brand-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                          >
+                            <option value="">
+                              {isLoadingAssistants
+                                ? "Loading assistants..."
+                                : hasAssistantOptions
+                                  ? "Select assistant to change"
+                                  : "No assistants available"}
+                            </option>
+                            {activeAssistantOptions.map((assistant) => (
+                              <option key={assistant.user_id} value={assistant.user_id}>
+                                {`${assistant.name} (${assistant.user_id})`}
+                                {assistant.is_active === false ? " [Inactive]" : ""}
+                              </option>
+                            ))}
+                          </select>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => forceAssignLead(lead.id)}
+                            disabled={
+                              isLoadingAssistants ||
+                              !hasAssistantOptions ||
+                              !selectedAssistantId ||
+                              !hasAssignmentChanged ||
+                              isForceAssigningLeadId === lead.id
+                            }
+                          >
+                            {isForceAssigningLeadId === lead.id
+                              ? "Assigning..."
+                              : currentAssistantId
+                                ? "Change Assistant"
+                                : "Assign Assistant"}
+                          </Button>
+                              </>
+                            );
+                          })()}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{lead.createdAt}</td>
                     </tr>
@@ -855,7 +1091,7 @@ export default function AdminTotalLeadsPage() {
               </table>
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-slate-700">
+            <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-slate-700">
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 Page {currentPage} of {Math.max(totalPages, 1)}
               </p>
