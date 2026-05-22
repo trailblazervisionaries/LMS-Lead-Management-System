@@ -34,7 +34,7 @@ export async function createAssistant(payload: CreateAssistantPayload): Promise<
   }
 
   try {
-    const response = await api.post<CreateAssistantResponse>("/api/assistant/add", payload, {
+    const response = await api.post<CreateAssistantResponse>("/api/admin/add", payload, {
       headers: {
         Authorization: `Bearer ${token}`
       }
@@ -52,7 +52,7 @@ export async function getAssistants(page: number, size: number): Promise<Assista
   }
 
   try {
-    const response = await api.get<AssistantListResponse>("/api/assistant/all", {
+    const response = await api.get<AssistantListResponse>("/api/admin/all", {
       params: { page, size },
       headers: {
         Authorization: `Bearer ${token}`
@@ -74,7 +74,7 @@ export async function updateAssistant(
   }
 
   try {
-    const response = await api.put<UpdateAssistantResponse>(`/api/assistant/update/${userId}`, payload, {
+    const response = await api.put<UpdateAssistantResponse>(`/api/admin/update/${userId}`, payload, {
       headers: {
         Authorization: `Bearer ${token}`
       }
@@ -92,7 +92,7 @@ export async function deleteAssistant(userId: string): Promise<DeleteAssistantRe
   }
 
   try {
-    const response = await api.delete<DeleteAssistantResponse>(`/api/assistant/delete/${userId}`, {
+    const response = await api.delete<DeleteAssistantResponse>(`/api/admin/delete/${userId}`, {
       headers: {
         Authorization: `Bearer ${token}`
       }
@@ -110,7 +110,7 @@ export async function activateAssistant(userId: string): Promise<ActivateAssista
   }
 
   try {
-    const response = await api.post<ActivateAssistantResponse>(`/api/assistant/activate/${userId}`, null, {
+    const response = await api.post<ActivateAssistantResponse>(`/api/admin/activate/${userId}`, null, {
       headers: {
         Authorization: `Bearer ${token}`
       }
@@ -128,7 +128,7 @@ export async function deactivateAssistant(userId: string): Promise<DeactivateAss
   }
 
   try {
-    const response = await api.post<DeactivateAssistantResponse>(`/api/assistant/deactivate/${userId}`, null, {
+    const response = await api.post<DeactivateAssistantResponse>(`/api/admin/deactivate/${userId}`, null, {
       headers: {
         Authorization: `Bearer ${token}`
       }

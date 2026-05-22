@@ -173,23 +173,23 @@ export default function AdminAssignedLeadsPage() {
           <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-700">
             <table className="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-slate-700">
               <thead className="bg-slate-50 dark:bg-slate-800/60">
-                <tr>
-                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Lead ID</th>
-                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Name</th>
-                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Email</th>
-                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Phone</th>
-                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Assigned Assistant</th>
-                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Created</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
-                      Loading assigned leads...
-                    </td>
-                  </tr>
-                ) : null}
+	                <tr>
+	                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Lead ID</th>
+	                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Name</th>
+	                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Email</th>
+	                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Phone</th>
+	                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Assigned Assistant</th>
+	                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Created</th>
+		                </tr>
+		              </thead>
+		              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+		                {isLoading ? (
+		                  <tr>
+		                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+		                      Loading assigned leads...
+		                    </td>
+		                  </tr>
+	                ) : null}
                 {!isLoading &&
                   assignedLeads.map((lead) => (
                     <tr key={lead.id} className="transition hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
@@ -197,20 +197,20 @@ export default function AdminAssignedLeadsPage() {
                       <td className="px-4 py-3 text-slate-900 dark:text-slate-100">{lead.name}</td>
                       <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{lead.email}</td>
                       <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{lead.phone}</td>
-                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">
-                        <p className="font-medium text-slate-900 dark:text-slate-100">{lead.assignedAssistantName}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{lead.assignedAssistantEmail}</p>
-                      </td>
-                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{lead.createdAt}</td>
-                    </tr>
-                  ))}
-                {!isLoading && !assignedLeads.length ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
-                      No assigned leads found on this page.
-                    </td>
-                  </tr>
-                ) : null}
+	                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">
+	                        <p className="font-medium text-slate-900 dark:text-slate-100">{lead.assignedAssistantName}</p>
+	                        <p className="text-xs text-slate-500 dark:text-slate-400">{lead.assignedAssistantEmail}</p>
+		                      </td>
+		                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{lead.createdAt}</td>
+		                    </tr>
+		                  ))}
+		                {!isLoading && !assignedLeads.length ? (
+		                  <tr>
+		                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+		                      No assigned leads found on this page.
+		                    </td>
+		                  </tr>
+	                ) : null}
               </tbody>
             </table>
           </div>

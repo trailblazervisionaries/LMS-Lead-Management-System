@@ -107,6 +107,14 @@ export async function resetPassword(payload: ResetPasswordPayload): Promise<Rese
   }
 }
 
+export async function logoutUser() {
+  try {
+    await api.post("/api/users/logout");
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, "Logout failed"));
+  }
+}
+
 export function decodeToken(token: string): JwtPayload {
   return jwtDecode<JwtPayload>(token);
 }

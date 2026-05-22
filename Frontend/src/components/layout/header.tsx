@@ -6,6 +6,7 @@ import { UserRole } from "@/types/auth/auth";
 import { cn } from "@/lib/cn";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { useAuthStore } from "@/store/auth-store";
+import { logoutUser } from "@/features/auth/services/auth-service";
 
 interface HeaderProps {
   role: UserRole;
@@ -31,8 +32,13 @@ export function Header({ role, isSidebarCollapsed, onToggleSidebar }: HeaderProp
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, []);
 
-  const onLogout = () => {
+  const onLogout = async () => {
     setIsProfileOpen(false);
+    try {
+      await logoutUser();
+    } catch {
+      // Continue with local logout even if server logout fails.
+    }
     logout();
     router.replace("/login");
   };
