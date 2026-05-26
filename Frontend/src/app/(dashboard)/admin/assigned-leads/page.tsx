@@ -85,6 +85,7 @@ export default function AdminAssignedLeadsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [deletingLeadId, setDeletingLeadId] = useState("");
   const [error, setError] = useState("");
   const [assignedLeads, setAssignedLeads] = useState<AssignedLeadRecord[]>([]);
 
@@ -119,6 +120,39 @@ export default function AdminAssignedLeadsPage() {
       setIsLoading(false);
     }
   }, []);
+
+  const deleteAssignedLead = useCallback(
+    async (leadId: string) => {
+      const token = getAuthToken();
+      if (!token) {
+        setError("Admin authentication required. Please log in again.");
+        return;
+      }
+
+      const confirmed = window.confirm("Delete this assigned lead?");
+      if (!confirmed) {
+        return;
+      }
+
+      setDeletingLeadId(leadId);
+      setError("");
+
+      try {
+        await api.delete(`/api/lead/assistant/${leadId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        await loadAssignedLeads(currentPage);
+      } catch (apiError) {
+        setError(getApiErrorMessage(apiError, "Unable to delete assigned lead."));
+      } finally {
+        setDeletingLeadId("");
+      }
+    },
+    [currentPage, loadAssignedLeads]
+  );
 
   useEffect(() => {
     void loadAssignedLeads(currentPage);
@@ -180,12 +214,13 @@ export default function AdminAssignedLeadsPage() {
 	                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Phone</th>
 	                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Assigned Assistant</th>
 	                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Created</th>
+	                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Action</th>
 		                </tr>
 		              </thead>
 		              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
 		                {isLoading ? (
 		                  <tr>
-		                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+		                    <td colSpan={7} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
 		                      Loading assigned leads...
 		                    </td>
 		                  </tr>
@@ -202,11 +237,21 @@ export default function AdminAssignedLeadsPage() {
 	                        <p className="text-xs text-slate-500 dark:text-slate-400">{lead.assignedAssistantEmail}</p>
 		                      </td>
 		                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{lead.createdAt}</td>
+                      <td className="px-4 py-3">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => void deleteAssignedLead(lead.id)}
+                          disabled={isLoading || deletingLeadId === lead.id}
+                        >
+                          {deletingLeadId === lead.id ? "Deleting..." : "Delete"}
+                        </Button>
+                      </td>
 		                    </tr>
 		                  ))}
-		                {!isLoading && !assignedLeads.length ? (
+                {!isLoading && !assignedLeads.length ? (
 		                  <tr>
-		                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+		                    <td colSpan={7} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
 		                      No assigned leads found on this page.
 		                    </td>
 		                  </tr>
