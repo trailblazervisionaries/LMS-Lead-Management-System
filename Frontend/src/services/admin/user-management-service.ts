@@ -52,7 +52,7 @@ export async function getAssistants(page: number, size: number): Promise<Assista
   }
 
   try {
-    const response = await api.get<AssistantListResponse>("/api/admin/all", {
+    const response = await api.get<AssistantListResponse>("/api/assistant/all", {
       params: { page, size },
       headers: {
         Authorization: `Bearer ${token}`

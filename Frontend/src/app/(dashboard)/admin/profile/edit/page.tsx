@@ -11,6 +11,29 @@ import { useAdminProfile } from "@/hooks/admin/use-admin-profile";
 import { useUpdateAdminProfile } from "@/hooks/admin/use-update-admin-profile";
 import { createAssistantSchema, CreateAssistantSchemaValues } from "@/lib/validators/user-management";
 import { UpdateAdminPayload } from "@/types/admin/admin-profile";
+import api from "@/api/axios";
+import { getApiErrorMessage } from "@/utils/api-error";
+
+interface ChangePasswordResponse {
+  message?: string;
+}
+
+function getAuthToken() {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const tokenFromCookie = document.cookie
+    .split("; ")
+    .find((cookie) => cookie.startsWith("lms_token="))
+    ?.split("=")[1];
+
+  if (tokenFromCookie) {
+    return decodeURIComponent(tokenFromCookie);
+  }
+
+  return null;
+}
 
 function getImageUrl(profileImage: string | null) {
   if (!profileImage) {
@@ -33,6 +56,11 @@ export default function AdminProfilePage() {
   const updateAdminProfileMutation = useUpdateAdminProfile();
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [updateSuccess, setUpdateSuccess] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const {
     register,
@@ -97,6 +125,43 @@ export default function AdminProfilePage() {
     });
   };
 
+  const onChangePassword = async () => {
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    const trimmedPassword = newPassword.trim();
+    if (!trimmedPassword) {
+      setPasswordError("New password is required");
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      setPasswordError("Authentication required. Please log in again.");
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    try {
+      const response = await api.put<ChangePasswordResponse>(
+        "/api/users/change-password",
+        { new_password: trimmedPassword },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      setPasswordSuccess(response.data.message ?? "Password changed successfully.");
+      setNewPassword("");
+    } catch (error) {
+      setPasswordError(getApiErrorMessage(error, "Unable to change password"));
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   const initials = data?.name
     ?.split(" ")
     .map((part) => part[0])
@@ -146,7 +211,6 @@ export default function AdminProfilePage() {
 
                 <div className="space-y-1">
                   <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{data.name}</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">{data.email}</p>
                   <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{data.role}</p>
                 </div>
               </div>
@@ -246,6 +310,45 @@ export default function AdminProfilePage() {
                   </Button>
                 </div>
               </form>
+            </Card>
+
+            <Card className="rounded-2xl">
+              <div className="mb-5">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Change Password</h3>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Set a new account password.</p>
+              </div>
+
+              <div className="space-y-4">
+                <label className="space-y-1 text-sm">
+                  <span className="font-medium text-slate-700 dark:text-slate-300">New password</span>
+                  <div className="relative">
+                    <Input
+                      type={showNewPassword ? "text" : "password"}
+                      className="pr-16"
+                      placeholder="Enter new password"
+                      value={newPassword}
+                      onChange={(event) => setNewPassword(event.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword((prev) => !prev)}
+                      className="absolute inset-y-0 right-0 inline-flex items-center px-3 text-xs font-medium text-slate-600 hover:text-slate-800 dark:text-slate-300 dark:hover:text-slate-100"
+                      aria-label={showNewPassword ? "Hide password" : "Show password"}
+                    >
+                      {showNewPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                </label>
+
+                {passwordError ? <p className="text-sm text-red-600">{passwordError}</p> : null}
+                {passwordSuccess ? <p className="text-sm text-emerald-600 dark:text-emerald-300">{passwordSuccess}</p> : null}
+
+                <div className="flex flex-wrap gap-3 pt-1">
+                  <Button type="button" onClick={() => void onChangePassword()} disabled={isChangingPassword}>
+                    {isChangingPassword ? "Updating..." : "Change Password"}
+                  </Button>
+                </div>
+              </div>
             </Card>
           </>
         ) : null}
