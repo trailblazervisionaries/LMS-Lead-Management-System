@@ -22,12 +22,31 @@ export interface AdminLeadsResponse {
 
 export interface EmailLeadRecord {
   id: string;
-  name: string;
+  displayName: string;
   email: string;
-  company: string;
-  phone: string;
-  createdAt: string;
-  assignedAssistant: string;
+  submittedData: Record<string, string>;
+}
+
+export interface ContactFormFieldDefinition {
+  name: string;
+  label: string;
+  type?: string;
+}
+
+interface FormTemplateField {
+  name?: string;
+  label?: string;
+  type?: string;
+}
+
+interface FormTemplateItem {
+  is_active: boolean;
+  schema_definition?: {
+    form_id?: string;
+    form_name?: string;
+    slug?: string;
+    fields?: FormTemplateField[];
+  };
 }
 
 export interface SendCustomEmailPayload {
@@ -75,16 +94,32 @@ function getSubmittedValue(data: Record<string, unknown>, aliases: string[]): st
 
 function mapLead(lead: AdminLeadItem): EmailLeadRecord {
   const submittedData = lead.submitted_data && typeof lead.submitted_data === "object" ? lead.submitted_data : {};
+  const normalizedSubmittedData = Object.fromEntries(
+    Object.entries(submittedData).map(([key, value]) => [key, String(value ?? "").trim()])
+  ) as Record<string, string>;
 
   return {
     id: lead.id,
-    name: getSubmittedValue(submittedData, ["name", "full name", "lead name", "customer name"]),
+    displayName: getSubmittedValue(submittedData, ["name", "full name", "lead name", "customer name"]),
     email: getSubmittedValue(submittedData, ["email", "email address", "mail"]),
-    company: getSubmittedValue(submittedData, ["company", "organization", "business"]),
-    phone: getSubmittedValue(submittedData, ["phone", "phone number", "mobile", "contact"]),
-    createdAt: lead.created_at ? new Date(lead.created_at).toLocaleDateString() : "-",
-    assignedAssistant: lead.assigned_assistant?.name?.trim() || "Unassigned"
+    submittedData: normalizedSubmittedData
   };
+}
+
+function isContactFormTemplate(template: FormTemplateItem): boolean {
+  const schema = template.schema_definition;
+  const tokens = [
+    schema?.form_id,
+    schema?.form_name,
+    schema?.slug
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.toLowerCase().replace(/[^a-z0-9]/g, ""));
+
+  return (
+    template.is_active &&
+    tokens.some((value) => value === "contactform" || value === "contactformv1" || value === "contact")
+  );
 }
 
 async function fetchLeadPage(page: number, size: number, token: string): Promise<AdminLeadsResponse> {
@@ -139,6 +174,49 @@ export async function getAllAdminLeads(): Promise<EmailLeadRecord[]> {
     return items.map(mapLead);
   } catch (error) {
     throw new Error(getApiErrorMessage(error, "Unable to load leads for email sending."));
+  }
+}
+
+export async function getContactFormFields(): Promise<ContactFormFieldDefinition[]> {
+  const token = getAdminToken();
+  if (!token) {
+    throw new Error("Admin authentication required. Please log in again.");
+  }
+
+  try {
+    const response = await api.get<FormTemplateItem[]>("/api/form/templates", {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    const templates = Array.isArray(response.data) ? response.data : [];
+    const contactTemplate =
+      templates.find(isContactFormTemplate) ??
+      templates.find((template) => {
+        const schema = template.schema_definition;
+        const tokens = [
+          schema?.form_id,
+          schema?.form_name,
+          schema?.slug
+        ]
+          .filter((value): value is string => Boolean(value))
+          .map((value) => value.toLowerCase().replace(/[^a-z0-9]/g, ""));
+        return tokens.some((value) => value === "contactform" || value === "contactformv1" || value === "contact");
+      }) ??
+      null;
+
+    const fields = contactTemplate?.schema_definition?.fields ?? [];
+
+    return fields
+      .filter((field): field is FormTemplateField & { name: string } => Boolean(field.name))
+      .map((field) => ({
+        name: field.name,
+        label: field.label?.trim() || field.name,
+        type: field.type
+      }));
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, "Unable to load contact form fields."));
   }
 }
 
