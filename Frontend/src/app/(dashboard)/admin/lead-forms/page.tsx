@@ -311,6 +311,27 @@ function getAdminToken() {
   return decodeURIComponent(tokenFromCookie);
 }
 
+interface AdminTokenPayload {
+  sub?: string;
+  user_id?: string;
+  id?: string;
+  email?: string;
+}
+
+function getAdminUserIdFromToken(token: string): string | null {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1] ?? "")) as AdminTokenPayload;
+    const userId = payload.user_id?.trim() || payload.id?.trim();
+    if (userId) return userId;
+
+    const sub = payload.sub?.trim();
+    if (sub && !sub.includes("@")) return sub;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function resolveAllowedMimeTypes(accept: string) {
   const EXTENSION_MIME: Record<string, string> = {
     ".pdf": "application/pdf",
@@ -388,11 +409,18 @@ export default function AdminLeadFormsPage() {
       return;
     }
 
+    const adminUserId = getAdminUserIdFromToken(token);
+    if (!adminUserId) {
+      setTemplatesError("Unable to identify admin user id. Please log in again.");
+      setIsLoadingTemplates(false);
+      return;
+    }
+
     setIsLoadingTemplates(true);
     setTemplatesError(null);
 
     try {
-      const response = await api.get<FormTemplateItem[]>("/api/form/templates", {
+      const response = await api.get<FormTemplateItem[]>(`/api/form/templates/${encodeURIComponent(adminUserId)}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
