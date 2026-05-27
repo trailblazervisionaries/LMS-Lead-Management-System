@@ -431,9 +431,15 @@ export default function AdminTotalLeadsPage() {
       return;
     }
 
+    const adminUserId = getAdminUserIdFromToken(token);
+    if (!adminUserId) {
+      setError("Unable to identify admin user id. Please log in again.");
+      return;
+    }
+
     const loadLeadStructure = async () => {
       try {
-        const response = await api.get<FormTemplateItem[]>("/api/form/templates", {
+        const response = await api.get<FormTemplateItem[]>(`/api/form/templates/${encodeURIComponent(adminUserId)}`, {
           headers: {
             Authorization: `Bearer ${token}`
           }

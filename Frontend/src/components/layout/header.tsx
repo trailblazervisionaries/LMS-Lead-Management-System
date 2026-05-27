@@ -53,7 +53,7 @@ export function Header({ role, isSidebarCollapsed, onToggleSidebar }: HeaderProp
   }, []);
 
   useEffect(() => {
-    if (role !== "admin") {
+    if (role !== "admin" && role !== "assistant") {
       return;
     }
 
@@ -72,9 +72,11 @@ export function Header({ role, isSidebarCollapsed, onToggleSidebar }: HeaderProp
 
     let isMounted = true;
 
-    const hydrateAdminUser = async () => {
+    const profileUrl = role === "admin" ? "/api/admin/me" : "/api/assistant/me";
+
+    const hydrateCurrentUser = async () => {
       try {
-        const response = await api.get<AdminProfileResponse>("/api/admin/me", {
+        const response = await api.get<AdminProfileResponse>(profileUrl, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -98,7 +100,7 @@ export function Header({ role, isSidebarCollapsed, onToggleSidebar }: HeaderProp
       }
     };
 
-    void hydrateAdminUser();
+    void hydrateCurrentUser();
 
     return () => {
       isMounted = false;
@@ -118,7 +120,7 @@ export function Header({ role, isSidebarCollapsed, onToggleSidebar }: HeaderProp
 
   const onOpenProfile = () => {
     setIsProfileOpen(false);
-    router.push(role === "admin" ? "/admin/profile/edit" : `/${role}/profile`);
+    router.push(role === "admin" ? "/admin/profile/edit" : `/${role}/profile/edit`);
   };
 
   const onViewProfile = () => {
