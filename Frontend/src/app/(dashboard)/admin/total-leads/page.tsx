@@ -75,27 +75,6 @@ interface AdminLeadsResponse {
   total_pages: number;
 }
 
-interface AssistantListItem {
-  user_id: string;
-  name: string;
-  email?: string;
-  is_active?: boolean;
-  is_deleted?: boolean;
-}
-
-interface AssistantNameIdResponseItem {
-  user_id: string;
-  name: string;
-}
-
-interface AssistantListResponse {
-  items: AssistantListItem[];
-  total_count: number;
-  page: number;
-  size: number;
-  total_pages: number;
-}
-
 interface AuthTokenPayload {
   sub?: string;
   user_id?: string;
@@ -323,10 +302,6 @@ export default function AdminTotalLeadsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [isLoadingLeads, setIsLoadingLeads] = useState(false);
   const [isAssigningLeads, setIsAssigningLeads] = useState(false);
-  const [assistantOptions, setAssistantOptions] = useState<AssistantListItem[]>([]);
-  const [isLoadingAssistants, setIsLoadingAssistants] = useState(false);
-  const [leadAssignmentDraft, setLeadAssignmentDraft] = useState<Record<string, string>>({});
-  const [isForceAssigningLeadId, setIsForceAssigningLeadId] = useState<string>("");
 
   const totalLeads = totalCount;
   const visibleFieldDefinitions = useMemo(
@@ -341,12 +316,6 @@ export default function AdminTotalLeadsPage() {
     [leadFields, selectedLeadFields]
   );
   const hasSearchableFields = searchableFieldOptions.length > 0;
-  const activeAssistantOptions = useMemo(
-    () => assistantOptions.filter((assistant) => assistant.is_active !== false && !assistant.is_deleted),
-    [assistantOptions]
-  );
-  const hasAssistantOptions = activeAssistantOptions.length > 0;
-
   const loadAdminLeads = useCallback(async (page: number) => {
     const token = getAuthToken();
     if (!token) {
@@ -371,56 +340,6 @@ export default function AdminTotalLeadsPage() {
       setError(getApiErrorMessage(apiError, "Unable to fetch leads."));
     } finally {
       setIsLoadingLeads(false);
-    }
-  }, []);
-
-  const loadAssistants = useCallback(async () => {
-    const token = getAuthToken();
-    if (!token) {
-      setError("Admin authentication required. Please log in again.");
-      return;
-    }
-
-    setIsLoadingAssistants(true);
-    try {
-      const adminUserId = getAdminUserIdFromToken(token);
-      let mappedAssistants: AssistantListItem[] = [];
-
-      if (adminUserId) {
-        const response = await api.get<AssistantNameIdResponseItem[]>(
-          `/api/assistant/allassistant/name/id/${encodeURIComponent(adminUserId)}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        );
-
-        const assistantItems = Array.isArray(response.data) ? response.data : [];
-        mappedAssistants = assistantItems.map((assistant) => ({
-          user_id: assistant.user_id,
-          name: assistant.name,
-          email: "",
-          is_active: true,
-          is_deleted: false
-        }));
-      }
-
-      if (!mappedAssistants.length) {
-        const fallbackResponse = await api.get<AssistantListResponse>("/api/assistant/all", {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-        });
-        const fallbackItems = Array.isArray(fallbackResponse.data.items) ? fallbackResponse.data.items : [];
-        mappedAssistants = fallbackItems.filter((assistant) => !assistant.is_deleted);
-      }
-
-      setAssistantOptions(mappedAssistants);
-    } catch (apiError) {
-      setError(getApiErrorMessage(apiError, "Unable to fetch assistants."));
-    } finally {
-      setIsLoadingAssistants(false);
     }
   }, []);
 
@@ -481,10 +400,6 @@ export default function AdminTotalLeadsPage() {
   }, [currentPage, loadAdminLeads]);
 
   useEffect(() => {
-    void loadAssistants();
-  }, [loadAssistants]);
-
-  useEffect(() => {
     const allowedKeys = leadFields.map((field) => field.key);
     setSelectedLeadFields((prev) => {
       const next = prev.filter((key) => allowedKeys.includes(key));
@@ -519,18 +434,6 @@ export default function AdminTotalLeadsPage() {
   const handleManualInput = (fieldName: string, value: string) => {
     setManualLeadValues((prev) => ({ ...prev, [fieldName]: value }));
   };
-
-  useEffect(() => {
-    setLeadAssignmentDraft((prev) => {
-      const next: Record<string, string> = { ...prev };
-      leads.forEach((lead) => {
-        if (!(lead.id in next)) {
-          next[lead.id] = "";
-        }
-      });
-      return next;
-    });
-  }, [leads]);
 
   const addManualLead = async () => {
     setError("");
@@ -624,60 +527,6 @@ export default function AdminTotalLeadsPage() {
       setError(getApiErrorMessage(apiError, "Unable to assign unassigned leads."));
     } finally {
       setIsAssigningLeads(false);
-    }
-  };
-
-  const forceAssignLead = async (leadId: string) => {
-    setError("");
-    setMessage("");
-
-    const assistantId = leadAssignmentDraft[leadId]?.trim() ?? "";
-    if (!assistantId) {
-      setError("Please select an assistant before assigning this lead.");
-      return;
-    }
-
-    const token = getAuthToken();
-    if (!token) {
-      setError("Admin authentication required. Please log in again.");
-      return;
-    }
-
-    setIsForceAssigningLeadId(leadId);
-    try {
-      const headers = {
-        Authorization: `Bearer ${token}`
-      };
-
-      const assignmentPayloadCandidates = [
-        { assistant_id: assistantId, lead_id: leadId },
-        { assistant_user_id: assistantId, lead_id: leadId },
-        { assistantId, leadId }
-      ];
-
-      let assignmentUpdated = false;
-      let lastError: unknown = null;
-
-      for (const payload of assignmentPayloadCandidates) {
-        try {
-          await api.post("/api/lead/admin/force-assign", payload, { headers });
-          assignmentUpdated = true;
-          break;
-        } catch (apiError) {
-          lastError = apiError;
-        }
-      }
-
-      if (!assignmentUpdated) {
-        throw lastError ?? new Error("Unable to update lead assignment.");
-      }
-
-      await loadAdminLeads(currentPage);
-      setMessage("Lead assistant updated successfully.");
-    } catch (apiError) {
-      setError(getApiErrorMessage(apiError, "Unable to update lead assignment."));
-    } finally {
-      setIsForceAssigningLeadId("");
     }
   };
 
@@ -999,14 +848,13 @@ export default function AdminTotalLeadsPage() {
                         {field.label}
                       </th>
                     ))}
-                    <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Assigned Assistant</th>
                     <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Created</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                   {isLoadingLeads ? (
                     <tr>
-                      <td colSpan={visibleFieldDefinitions.length + 3} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+                      <td colSpan={visibleFieldDefinitions.length + 2} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
                         Loading leads...
                       </td>
                     </tr>
@@ -1022,71 +870,12 @@ export default function AdminTotalLeadsPage() {
                           {lead[field.key]}
                         </td>
                       ))}
-                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">
-                        <p className="font-medium text-slate-900 dark:text-slate-100">{lead.assignedAssistantName}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{lead.assignedAssistantEmail}</p>
-                        <div className="mt-2 flex flex-col gap-2">
-                          {(() => {
-                            const selectedAssistantId = leadAssignmentDraft[lead.id] ?? "";
-                            const currentAssistantId = lead.assignedAssistantId ?? "";
-                            const hasAssignmentChanged = selectedAssistantId !== currentAssistantId;
-
-                            return (
-                              <>
-                          <select
-                            value={selectedAssistantId}
-                            onChange={(event) =>
-                              setLeadAssignmentDraft((prev) => ({
-                                ...prev,
-                                [lead.id]: event.target.value
-                              }))
-                            }
-                            disabled={isLoadingAssistants || !hasAssistantOptions}
-                            className="h-9 w-full min-w-[180px] rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-700 outline-none transition focus:border-brand-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                          >
-                            <option value="">
-                              {isLoadingAssistants
-                                ? "Loading assistants..."
-                                : hasAssistantOptions
-                                  ? "Select assistant to change"
-                                  : "No assistants available"}
-                            </option>
-                            {activeAssistantOptions.map((assistant) => (
-                              <option key={assistant.user_id} value={assistant.user_id}>
-                                {`${assistant.name} (${assistant.user_id})`}
-                                {assistant.is_active === false ? " [Inactive]" : ""}
-                              </option>
-                            ))}
-                          </select>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => forceAssignLead(lead.id)}
-                            disabled={
-                              isLoadingAssistants ||
-                              !hasAssistantOptions ||
-                              !selectedAssistantId ||
-                              !hasAssignmentChanged ||
-                              isForceAssigningLeadId === lead.id
-                            }
-                          >
-                            {isForceAssigningLeadId === lead.id
-                              ? "Assigning..."
-                              : currentAssistantId
-                                ? "Change Assistant"
-                                : "Assign Assistant"}
-                          </Button>
-                              </>
-                            );
-                          })()}
-                        </div>
-                      </td>
                       <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{lead.createdAt}</td>
                     </tr>
                   ))}
                   {!isLoadingLeads && !filteredLeads.length ? (
                     <tr>
-                      <td colSpan={visibleFieldDefinitions.length + 3} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+                      <td colSpan={visibleFieldDefinitions.length + 2} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
                         {leads.length
                           ? "No leads match the current filters."
                           : "No leads yet. Add manually or import from Excel to get started."}

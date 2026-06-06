@@ -13,6 +13,7 @@ interface AdminLeadItem {
   submitted_data?: Record<string, unknown> | null;
   created_at?: string | null;
   assigned_assistant?: {
+    assistant_id?: string;
     name?: string;
     email?: string;
   } | null;
@@ -31,9 +32,38 @@ interface AssignedLeadRecord {
   name: string;
   email: string;
   phone: string;
+  assignedAssistantId: string;
   assignedAssistantName: string;
   assignedAssistantEmail: string;
   createdAt: string;
+}
+
+interface AssistantListItem {
+  user_id: string;
+  name: string;
+  email?: string;
+  is_active?: boolean;
+  is_deleted?: boolean;
+}
+
+interface AssistantNameIdResponseItem {
+  user_id: string;
+  name: string;
+}
+
+interface AssistantListResponse {
+  items: AssistantListItem[];
+  total_count: number;
+  page: number;
+  size: number;
+  total_pages: number;
+}
+
+interface AuthTokenPayload {
+  sub?: string;
+  user_id?: string;
+  id?: string;
+  email?: string;
 }
 
 function getAuthToken() {
@@ -66,6 +96,20 @@ function getSubmittedValue(data: Record<string, unknown>, aliases: string[]): st
   return "-";
 }
 
+function getAdminUserIdFromToken(token: string): string | null {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1] ?? "")) as AuthTokenPayload;
+    const userId = payload.user_id?.trim() || payload.id?.trim();
+    if (userId) return userId;
+
+    const sub = payload.sub?.trim();
+    if (sub && !sub.includes("@")) return sub;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function mapAssignedLead(lead: AdminLeadItem): AssignedLeadRecord {
   const submittedData = lead.submitted_data && typeof lead.submitted_data === "object" ? lead.submitted_data : {};
 
@@ -74,6 +118,7 @@ function mapAssignedLead(lead: AdminLeadItem): AssignedLeadRecord {
     name: getSubmittedValue(submittedData, ["name", "full name", "lead name", "customer name"]),
     email: getSubmittedValue(submittedData, ["email", "email address", "mail"]),
     phone: getSubmittedValue(submittedData, ["phone", "phone number", "mobile", "contact", "phone_number"]),
+    assignedAssistantId: lead.assigned_assistant?.assistant_id?.trim() || "",
     assignedAssistantName: lead.assigned_assistant?.name?.trim() || "Unassigned",
     assignedAssistantEmail: lead.assigned_assistant?.email?.trim() || "-",
     createdAt: lead.created_at ? new Date(lead.created_at).toLocaleDateString() : "-"
@@ -85,9 +130,20 @@ export default function AdminAssignedLeadsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingAssistants, setIsLoadingAssistants] = useState(false);
   const [deletingLeadId, setDeletingLeadId] = useState("");
+  const [isForceAssigningLeadId, setIsForceAssigningLeadId] = useState("");
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [assignedLeads, setAssignedLeads] = useState<AssignedLeadRecord[]>([]);
+  const [assistantOptions, setAssistantOptions] = useState<AssistantListItem[]>([]);
+  const [leadAssignmentDraft, setLeadAssignmentDraft] = useState<Record<string, string>>({});
+
+  const activeAssistantOptions = useMemo(
+    () => assistantOptions.filter((assistant) => assistant.is_active !== false && !assistant.is_deleted),
+    [assistantOptions]
+  );
+  const hasAssistantOptions = activeAssistantOptions.length > 0;
 
   const loadAssignedLeads = useCallback(async (page: number) => {
     const token = getAuthToken();
@@ -118,6 +174,56 @@ export default function AdminAssignedLeadsPage() {
       setError(getApiErrorMessage(apiError, "Unable to load assigned leads."));
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  const loadAssistants = useCallback(async () => {
+    const token = getAuthToken();
+    if (!token) {
+      setError("Admin authentication required. Please log in again.");
+      return;
+    }
+
+    setIsLoadingAssistants(true);
+    try {
+      const adminUserId = getAdminUserIdFromToken(token);
+      let mappedAssistants: AssistantListItem[] = [];
+
+      if (adminUserId) {
+        const response = await api.get<AssistantNameIdResponseItem[]>(
+          `/api/assistant/allassistant/name/id/${encodeURIComponent(adminUserId)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+
+        const assistantItems = Array.isArray(response.data) ? response.data : [];
+        mappedAssistants = assistantItems.map((assistant) => ({
+          user_id: assistant.user_id,
+          name: assistant.name,
+          email: "",
+          is_active: true,
+          is_deleted: false
+        }));
+      }
+
+      if (!mappedAssistants.length) {
+        const fallbackResponse = await api.get<AssistantListResponse>("/api/assistant/all", {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        const fallbackItems = Array.isArray(fallbackResponse.data.items) ? fallbackResponse.data.items : [];
+        mappedAssistants = fallbackItems.filter((assistant) => !assistant.is_deleted);
+      }
+
+      setAssistantOptions(mappedAssistants);
+    } catch (apiError) {
+      setError(getApiErrorMessage(apiError, "Unable to fetch assistants."));
+    } finally {
+      setIsLoadingAssistants(false);
     }
   }, []);
 
@@ -154,9 +260,77 @@ export default function AdminAssignedLeadsPage() {
     [currentPage, loadAssignedLeads]
   );
 
+  const forceAssignLead = async (leadId: string) => {
+    setError("");
+    setMessage("");
+
+    const assistantId = leadAssignmentDraft[leadId]?.trim() ?? "";
+    if (!assistantId) {
+      setError("Please select an assistant before assigning this lead.");
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      setError("Admin authentication required. Please log in again.");
+      return;
+    }
+
+    setIsForceAssigningLeadId(leadId);
+    try {
+      const headers = {
+        Authorization: `Bearer ${token}`
+      };
+
+      const assignmentPayloadCandidates = [
+        { assistant_id: assistantId, lead_id: leadId },
+        { assistant_user_id: assistantId, lead_id: leadId },
+        { assistantId, leadId }
+      ];
+
+      let assignmentUpdated = false;
+      let lastError: unknown = null;
+
+      for (const payload of assignmentPayloadCandidates) {
+        try {
+          await api.post("/api/lead/admin/force-assign", payload, { headers });
+          assignmentUpdated = true;
+          break;
+        } catch (apiError) {
+          lastError = apiError;
+        }
+      }
+
+      if (!assignmentUpdated) {
+        throw lastError ?? new Error("Unable to update lead assignment.");
+      }
+
+      await loadAssignedLeads(currentPage);
+      setMessage("Lead assistant updated successfully.");
+    } catch (apiError) {
+      setError(getApiErrorMessage(apiError, "Unable to update lead assignment."));
+    } finally {
+      setIsForceAssigningLeadId("");
+    }
+  };
+
   useEffect(() => {
     void loadAssignedLeads(currentPage);
   }, [currentPage, loadAssignedLeads]);
+
+  useEffect(() => {
+    void loadAssistants();
+  }, [loadAssistants]);
+
+  useEffect(() => {
+    setLeadAssignmentDraft((prev) => {
+      const next: Record<string, string> = { ...prev };
+      assignedLeads.forEach((lead) => {
+        next[lead.id] = lead.assignedAssistantId;
+      });
+      return next;
+    });
+  }, [assignedLeads]);
 
   const assignedCountInPage = useMemo(() => assignedLeads.length, [assignedLeads]);
 
@@ -189,6 +363,11 @@ export default function AdminAssignedLeadsPage() {
       {error ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
           {error}
+        </p>
+      ) : null}
+      {message ? (
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300">
+          {message}
         </p>
       ) : null}
 
@@ -235,6 +414,57 @@ export default function AdminAssignedLeadsPage() {
 	                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">
 	                        <p className="font-medium text-slate-900 dark:text-slate-100">{lead.assignedAssistantName}</p>
 	                        <p className="text-xs text-slate-500 dark:text-slate-400">{lead.assignedAssistantEmail}</p>
+                          <div className="mt-2 flex flex-col gap-2">
+                            {(() => {
+                              const selectedAssistantId = leadAssignmentDraft[lead.id] ?? "";
+                              const currentAssistantId = lead.assignedAssistantId ?? "";
+                              const hasAssignmentChanged = selectedAssistantId !== currentAssistantId;
+
+                              return (
+                                <>
+                                  <select
+                                    value={selectedAssistantId}
+                                    onChange={(event) =>
+                                      setLeadAssignmentDraft((prev) => ({
+                                        ...prev,
+                                        [lead.id]: event.target.value
+                                      }))
+                                    }
+                                    disabled={isLoadingAssistants || !hasAssistantOptions}
+                                    className="h-9 w-full min-w-[180px] rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-700 outline-none transition focus:border-brand-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                  >
+                                    <option value="">
+                                      {isLoadingAssistants
+                                        ? "Loading assistants..."
+                                        : hasAssistantOptions
+                                          ? "Select assistant to change"
+                                          : "No assistants available"}
+                                    </option>
+                                    {activeAssistantOptions.map((assistant) => (
+                                      <option key={assistant.user_id} value={assistant.user_id}>
+                                        {`${assistant.name} (${assistant.user_id})`}
+                                        {assistant.is_active === false ? " [Inactive]" : ""}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() => void forceAssignLead(lead.id)}
+                                    disabled={
+                                      isLoadingAssistants ||
+                                      !hasAssistantOptions ||
+                                      !selectedAssistantId ||
+                                      !hasAssignmentChanged ||
+                                      isForceAssigningLeadId === lead.id
+                                    }
+                                  >
+                                    {isForceAssigningLeadId === lead.id ? "Assigning..." : "Change Assistant"}
+                                  </Button>
+                                </>
+                              );
+                            })()}
+                          </div>
 		                      </td>
 		                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{lead.createdAt}</td>
                       <td className="px-4 py-3">

@@ -4,39 +4,44 @@ import { useMemo, useState } from "react";
 import type { DashboardStat } from "@/types/dashboard";
 import { Card } from "@/components/ui/card";
 
-interface AssistantDashboardProps {
-  stats: DashboardStat[];
+export interface AssistantDashboardLead {
+  id: string;
+  name: string;
+  email: string;
+  source: string;
+  priority: string;
+  stage: string;
+  assignedOn: string;
 }
 
-const ASSISTANT_RECENT_LEADS = [
-  { id: "LD-2401", name: "Aarav Mehta", source: "Website", priority: "High", stage: "Follow-up", assignedOn: "2026-04-29" },
-  { id: "LD-2402", name: "Priya Sharma", source: "Referral", priority: "Medium", stage: "Qualified", assignedOn: "2026-04-28" },
-  { id: "LD-2403", name: "Rahul Verma", source: "Campaign", priority: "Low", stage: "New", assignedOn: "2026-04-28" },
-  { id: "LD-2404", name: "Neha Kapoor", source: "Website", priority: "High", stage: "Proposal", assignedOn: "2026-04-27" },
-  { id: "LD-2405", name: "Karan Singh", source: "Partner", priority: "Medium", stage: "Follow-up", assignedOn: "2026-04-27" },
-  { id: "LD-2406", name: "Isha Nair", source: "Campaign", priority: "Low", stage: "New", assignedOn: "2026-04-26" },
-  { id: "LD-2407", name: "Rohan Das", source: "Website", priority: "High", stage: "Qualified", assignedOn: "2026-04-25" },
-  { id: "LD-2408", name: "Ananya Rao", source: "Referral", priority: "Medium", stage: "Follow-up", assignedOn: "2026-04-25" },
-  { id: "LD-2409", name: "Vikram Jain", source: "Campaign", priority: "Low", stage: "New", assignedOn: "2026-04-24" },
-  { id: "LD-2410", name: "Meera Joshi", source: "Website", priority: "Medium", stage: "Qualified", assignedOn: "2026-04-24" }
-];
+interface AssistantDashboardProps {
+  stats: DashboardStat[];
+  recentLeads: AssistantDashboardLead[];
+  isRecentLeadsLoading?: boolean;
+  recentLeadsError?: string | null;
+}
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
 }
 
-export function AssistantDashboard({ stats }: AssistantDashboardProps) {
+export function AssistantDashboard({
+  stats,
+  recentLeads,
+  isRecentLeadsLoading = false,
+  recentLeadsError = null
+}: AssistantDashboardProps) {
   const [dealSearch, setDealSearch] = useState("");
   const filteredLeads = useMemo(() => {
     const query = dealSearch.trim().toLowerCase();
-    if (!query) return ASSISTANT_RECENT_LEADS;
+    if (!query) return recentLeads;
 
-    return ASSISTANT_RECENT_LEADS.filter((lead) =>
-      [lead.id, lead.name, lead.source, lead.priority, lead.stage, lead.assignedOn].some((value) =>
+    return recentLeads.filter((lead) =>
+      [lead.id, lead.name, lead.email, lead.source, lead.priority, lead.stage, lead.assignedOn].some((value) =>
         value.toLowerCase().includes(query)
       )
     );
-  }, [dealSearch]);
+  }, [dealSearch, recentLeads]);
 
   return (
     <section className="space-y-6">
@@ -90,27 +95,41 @@ export function AssistantDashboard({ stats }: AssistantDashboardProps) {
             <tr>
               <th className="px-6 py-3">Lead ID</th>
               <th className="px-6 py-3">Lead Name</th>
-              <th className="px-6 py-3">Source</th>
-              <th className="px-6 py-3">Priority</th>
+               <th className="px-6 py-3">Email</th>
+            {/* <th className="px-6 py-3">Priority</th>  */}
               <th className="px-6 py-3">Stage</th>
               <th className="px-6 py-3">Assigned On</th>
             </tr>
           </thead>
           <tbody>
-            {filteredLeads.map((lead) => (
+            {isRecentLeadsLoading ? (
+              <tr className="border-t border-slate-200 text-sm dark:border-slate-800">
+                <td colSpan={5} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400">
+                  Loading assigned leads...
+                </td>
+              </tr>
+            ) : null}
+            {!isRecentLeadsLoading && recentLeadsError ? (
+              <tr className="border-t border-slate-200 text-sm dark:border-slate-800">
+                <td colSpan={5} className="px-6 py-8 text-center text-red-600 dark:text-red-300">
+                  {recentLeadsError}
+                </td>
+              </tr>
+            ) : null}
+            {!isRecentLeadsLoading && !recentLeadsError ? filteredLeads.map((lead) => (
               <tr key={lead.id} className="border-t border-slate-200 text-sm dark:border-slate-800">
                 <td className="px-6 py-4 font-medium text-brand-700 dark:text-brand-300">{lead.id}</td>
                 <td className="px-6 py-4 text-slate-900 dark:text-slate-100">{lead.name}</td>
-                <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{lead.source}</td>
-                <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{lead.priority}</td>
+                <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{lead.email}</td>
+                {/* <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{lead.priority}</td> */}
                 <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{lead.stage}</td>
                 <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{lead.assignedOn}</td>
               </tr>
-            ))}
-            {!filteredLeads.length ? (
+            )) : null}
+            {!isRecentLeadsLoading && !recentLeadsError && !filteredLeads.length ? (
               <tr className="border-t border-slate-200 text-sm dark:border-slate-800">
-                <td colSpan={6} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400">
-                  No assigned leads found for "{dealSearch}".
+                <td colSpan={5} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400">
+                  {dealSearch ? `No assigned leads found for "${dealSearch}".` : "No assigned leads found."}
                 </td>
               </tr>
             ) : null}

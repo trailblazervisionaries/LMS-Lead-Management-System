@@ -194,9 +194,9 @@ const FIELD_DEFAULTS: Record<BuilderFieldType, Omit<FormBuilderField, "id">> = {
   }
 };
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
-}
+// function formatNumber(value: number) {
+//   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
+// }
 
 function formatDateTime(value?: string | null) {
   return value ? new Date(value).toLocaleString("en-US") : "-";
