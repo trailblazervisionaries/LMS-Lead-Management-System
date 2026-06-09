@@ -5,6 +5,7 @@ import {
   AssistantLeadDetails,
   AssistantLeadHistoryItem,
   AssistantLeadRemarkDetails,
+  AssistantLeadRemarkUpdatePayload,
   AssistantLeadStatusUpdatePayload
 } from "@/types/assistant/assigned-leads";
 
@@ -116,6 +117,32 @@ export async function updateAssistantLeadStatus(
     return response.data;
   } catch (error) {
     throw new Error(getApiErrorMessage(error, "Unable to update lead status."));
+  }
+}
+
+export async function updateAssistantLeadRemark(
+  leadId: string,
+  remarkId: string,
+  payload: AssistantLeadRemarkUpdatePayload
+): Promise<unknown> {
+  const token = getAssistantToken();
+  if (!token) {
+    throw new Error("Assistant authentication required. Please log in again.");
+  }
+
+  try {
+    const response = await api.put(
+      `/api/remark/assistant/${encodeURIComponent(leadId)}/update/${encodeURIComponent(remarkId)}`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, "Unable to update remark."));
   }
 }
 

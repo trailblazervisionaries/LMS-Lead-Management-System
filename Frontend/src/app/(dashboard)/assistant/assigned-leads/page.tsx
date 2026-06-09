@@ -9,12 +9,14 @@ import {
   getAssistantLeadDetails,
   getAssistantLeadHistory,
   getAssistantLeadRemarkDetails,
+  updateAssistantLeadRemark,
   updateAssistantLeadStatus
 } from "@/services/assistant/assigned-leads-service";
 import {
   AssistantAssignedLeadRecord,
   AssistantLeadDetails,
   AssistantLeadHistoryItem,
+  AssistantLeadRemarkItem,
   AssistantLeadRemarkDetails
 } from "@/types/assistant/assigned-leads";
 
@@ -86,23 +88,32 @@ export default function AssistantAssignedLeadsPage() {
   const [selectedLeadSummary, setSelectedLeadSummary] = useState<AssistantAssignedLeadRecord | null>(null);
   const [selectedLeadDetails, setSelectedLeadDetails] = useState<AssistantLeadDetails | null>(null);
   const [leadRemarkDetails, setLeadRemarkDetails] = useState<AssistantLeadRemarkDetails | null>(null);
-  const [selectedLeadView, setSelectedLeadView] = useState<"details" | "history" | "update">("details");
+  const [selectedLeadView, setSelectedLeadView] = useState<"details" | "history" | "update" | "remarkUpdate">(
+    "details"
+  );
+  const [selectedRemarkToUpdate, setSelectedRemarkToUpdate] = useState<AssistantLeadRemarkItem | null>(null);
   const [leadHistory, setLeadHistory] = useState<AssistantLeadHistoryItem[]>([]);
   const [leadHistoryCache, setLeadHistoryCache] = useState<Record<string, AssistantLeadHistoryItem[]>>({});
   const [isLeadDetailsLoading, setIsLeadDetailsLoading] = useState(false);
   const [isLeadRemarksLoading, setIsLeadRemarksLoading] = useState(false);
   const [isLeadHistoryLoading, setIsLeadHistoryLoading] = useState(false);
   const [isUpdatingLeadStatus, setIsUpdatingLeadStatus] = useState(false);
+  const [isUpdatingRemark, setIsUpdatingRemark] = useState(false);
   const [leadDetailsError, setLeadDetailsError] = useState("");
   const [leadRemarksError, setLeadRemarksError] = useState("");
   const [leadHistoryError, setLeadHistoryError] = useState("");
   const [leadUpdateError, setLeadUpdateError] = useState("");
+  const [remarkUpdateError, setRemarkUpdateError] = useState("");
   const [leadUpdateMessage, setLeadUpdateMessage] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [leadStatusForm, setLeadStatusForm] = useState({
     status: "Interested",
     remarks: "",
     nextFollowUpDate: "",
+    isCompleted: false
+  });
+  const [remarkUpdateForm, setRemarkUpdateForm] = useState({
+    remarks: "",
     isCompleted: false
   });
   const { data, isLoading, isError, error, refetch } = useAssistantAssignedLeads(currentPage, PAGE_SIZE);
@@ -171,7 +182,9 @@ export default function AssistantAssignedLeadsPage() {
     setLeadRemarksError("");
     setLeadHistoryError("");
     setLeadUpdateError("");
+    setRemarkUpdateError("");
     setLeadUpdateMessage("");
+    setSelectedRemarkToUpdate(null);
     setIsLeadDetailsLoading(true);
     setIsLeadRemarksLoading(true);
 
@@ -204,11 +217,14 @@ export default function AssistantAssignedLeadsPage() {
     setLeadRemarksError("");
     setLeadHistoryError("");
     setLeadUpdateError("");
+    setRemarkUpdateError("");
     setLeadUpdateMessage("");
+    setSelectedRemarkToUpdate(null);
     setIsLeadDetailsLoading(false);
     setIsLeadRemarksLoading(false);
     setIsLeadHistoryLoading(false);
     setIsUpdatingLeadStatus(false);
+    setIsUpdatingRemark(false);
   };
 
   const openLeadHistory = async () => {
@@ -246,17 +262,48 @@ export default function AssistantAssignedLeadsPage() {
     setSelectedLeadView("details");
     setLeadHistoryError("");
     setLeadUpdateError("");
+    setRemarkUpdateError("");
+    setSelectedRemarkToUpdate(null);
   };
 
   const openLeadStatusUpdate = () => {
     const currentStatus = selectedLeadDetails?.status?.trim() || selectedLeadSummary?.status?.trim() || "";
     setSelectedLeadView("update");
     setLeadUpdateError("");
+    setRemarkUpdateError("");
     setLeadUpdateMessage("");
     setLeadStatusForm((prev) => ({
       ...prev,
       status: LEAD_STATUS_OPTIONS.includes(currentStatus) ? currentStatus : prev.status
     }));
+  };
+
+  const setRemarkUpdateDraft = (remark: AssistantLeadRemarkItem) => {
+    setSelectedRemarkToUpdate(remark);
+    setRemarkUpdateForm({
+      remarks: remark.remarks?.trim() || "",
+      isCompleted: remark.is_completed
+    });
+  };
+
+  const openLeadRemarkUpdate = (remark = visibleRemarks[0]) => {
+    if (!remark) {
+      setLeadUpdateError("No remarks are available to update.");
+      return;
+    }
+
+    setRemarkUpdateDraft(remark);
+    setSelectedLeadView("remarkUpdate");
+    setLeadUpdateError("");
+    setRemarkUpdateError("");
+    setLeadUpdateMessage("");
+  };
+
+  const selectRemarkForUpdate = (remarkId: string) => {
+    const remark = visibleRemarks.find((item) => item.id === remarkId);
+    if (remark) {
+      setRemarkUpdateDraft(remark);
+    }
   };
 
   const submitLeadStatusUpdate = async () => {
@@ -303,6 +350,39 @@ export default function AssistantAssignedLeadsPage() {
       setLeadUpdateError(apiError instanceof Error ? apiError.message : "Unable to update lead status.");
     } finally {
       setIsUpdatingLeadStatus(false);
+    }
+  };
+
+  const submitRemarkUpdate = async () => {
+    if (!selectedLeadSummary || !selectedRemarkToUpdate) {
+      return;
+    }
+
+    const remarks = remarkUpdateForm.remarks.trim();
+    if (!remarks) {
+      setRemarkUpdateError("Remarks are required.");
+      return;
+    }
+
+    setIsUpdatingRemark(true);
+    setRemarkUpdateError("");
+    setLeadUpdateMessage("");
+
+    try {
+      await updateAssistantLeadRemark(selectedLeadSummary.id, selectedRemarkToUpdate.id, {
+        remarks,
+        is_completed: remarkUpdateForm.isCompleted
+      });
+
+      const remarkDetails = await getAssistantLeadRemarkDetails(selectedLeadSummary.id);
+      setLeadRemarkDetails(remarkDetails);
+      setLeadUpdateMessage("Remark updated successfully.");
+      setSelectedRemarkToUpdate(null);
+      setSelectedLeadView("details");
+    } catch (apiError) {
+      setRemarkUpdateError(apiError instanceof Error ? apiError.message : "Unable to update remark.");
+    } finally {
+      setIsUpdatingRemark(false);
     }
   };
 
@@ -383,7 +463,7 @@ export default function AssistantAssignedLeadsPage() {
                   All Leads
                 </button>
                 <span>&gt;</span>
-                {selectedLeadView === "history" || selectedLeadView === "update" ? (
+                {selectedLeadView === "history" || selectedLeadView === "update" || selectedLeadView === "remarkUpdate" ? (
                   <button
                     type="button"
                     onClick={showLeadDetails}
@@ -404,6 +484,12 @@ export default function AssistantAssignedLeadsPage() {
                   <>
                     <span>&gt;</span>
                     <span className="text-slate-900 dark:text-slate-100">Add remark &amp; Status</span>
+                  </>
+                ) : null}
+                {selectedLeadView === "remarkUpdate" ? (
+                  <>
+                    <span>&gt;</span>
+                    <span className="text-slate-900 dark:text-slate-100">Update remark</span>
                   </>
                 ) : null}
               </div>
@@ -692,11 +778,21 @@ export default function AssistantAssignedLeadsPage() {
 
             {selectedLeadView === "update" ? (
               <div className="space-y-5">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Add remark &amp; Status</h3>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    Update the lead outcome, add the latest remark, and schedule the next follow-up.
-                  </p>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Add remark &amp; Status</h3>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                      Update the lead outcome, add the latest remark, and schedule the next follow-up.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => openLeadRemarkUpdate()}
+                    disabled={isLeadRemarksLoading || !visibleRemarks.length}
+                  >
+                    Update Remark
+                  </Button>
                 </div>
 
                 {leadUpdateError ? (
@@ -780,6 +876,93 @@ export default function AssistantAssignedLeadsPage() {
                     {isUpdatingLeadStatus ? "Saving..." : "Save Remarks & Status"}
                   </Button>
                 </div>
+              </div>
+            ) : null}
+
+            {selectedLeadView === "remarkUpdate" ? (
+              <div className="space-y-5">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Update remark</h3>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    Edit the assistant remark text and completion status for this lead.
+                  </p>
+                </div>
+
+                {remarkUpdateError ? (
+                  <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+                    {remarkUpdateError}
+                  </p>
+                ) : null}
+
+                {visibleRemarks.length ? (
+                  <>
+                    <label className="space-y-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Remark
+                      <select
+                        value={selectedRemarkToUpdate?.id ?? ""}
+                        onChange={(event) => selectRemarkForUpdate(event.target.value)}
+                        disabled={isUpdatingRemark}
+                        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                      >
+                        {visibleRemarks.map((remark, index) => (
+                          <option key={remark.id} value={remark.id}>
+                            {index === 0 ? "Latest remark" : `Remark ${index + 1}`} - {formatDateTime(remark.created_at)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="space-y-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Remarks
+                      <textarea
+                        value={remarkUpdateForm.remarks}
+                        onChange={(event) =>
+                          setRemarkUpdateForm((prev) => ({
+                            ...prev,
+                            remarks: event.target.value
+                          }))
+                        }
+                        placeholder="Update the assistant remark..."
+                        disabled={isUpdatingRemark}
+                        className="min-h-[180px] w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
+                      />
+                    </label>
+
+                    <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={remarkUpdateForm.isCompleted}
+                        onChange={(event) =>
+                          setRemarkUpdateForm((prev) => ({
+                            ...prev,
+                            isCompleted: event.target.checked
+                          }))
+                        }
+                        disabled={isUpdatingRemark}
+                        className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 disabled:cursor-not-allowed dark:border-slate-600"
+                      />
+                      Mark this follow-up as completed
+                    </label>
+
+                    <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={openLeadStatusUpdate}
+                        disabled={isUpdatingRemark}
+                      >
+                        Cancel
+                      </Button>
+                      <Button type="button" onClick={() => void submitRemarkUpdate()} disabled={isUpdatingRemark}>
+                        {isUpdatingRemark ? "Saving..." : "Save Remark"}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                    No remarks found for this lead.
+                  </p>
+                )}
               </div>
             ) : null}
           </div>

@@ -52,6 +52,11 @@ export interface AssistantLeadStatusUpdatePayload {
   is_completed: boolean;
 }
 
+export interface AssistantLeadRemarkUpdatePayload {
+  remarks: string;
+  is_completed: boolean;
+}
+
 export interface AssistantLeadRemarkStatusHistoryItem {
   id: string;
   lead_id: string;
