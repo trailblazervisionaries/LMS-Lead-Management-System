@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import type { DashboardStat } from "@/types/dashboard";
+import api from "@/api/axios";
 import { Card } from "@/components/ui/card";
+import { getApiErrorMessage } from "@/utils/api-error";
 
 interface TailAdminDashboardProps {
   stats: DashboardStat[];
@@ -16,14 +19,109 @@ const CHART_HEIGHT = 180;
 const CALENDAR_WEEKS = 6;
 const CALENDAR_DAYS = CALENDAR_WEEKS * 7;
 
-const ORDERS = [
-  { id: "DE124321", customer: "John Doe", email: "johndoe@gmail.com", service: "Software License", value: "$18,50.34", date: "2024-06-15", status: "Complete" },
-  { id: "DE124322", customer: "Jane Smith", email: "janesmith@gmail.com", service: "Cloud Hosting", value: "$12,99.00", date: "2024-06-18", status: "Pending" },
-  { id: "DE124323", customer: "Michael Brown", email: "michaelbrown@gmail.com", service: "Web Domain", value: "$9,50.00", date: "2024-06-20", status: "Canceled" }
-];
+interface RecentLeadItem {
+  id: string;
+  submitted_data?: Record<string, unknown> | null;
+  created_at?: string | null;
+  created_by?: {
+    name?: string;
+    email?: string;
+    role?: string;
+  } | null;
+  added_by?: {
+    name?: string;
+    email?: string;
+    role?: string;
+  } | null;
+  assigned_assistant?: {
+    name?: string;
+    email?: string;
+  } | null;
+}
+
+interface RecentLeadsResponse {
+  items: RecentLeadItem[];
+}
+
+interface RecentLeadRecord {
+  id: string;
+  name: string;
+  email: string;
+  addedBy: string;
+  createdAt: string;
+  createdAtTime: number;
+  status: string;
+}
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
+}
+
+function getDashboardToken() {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const tokenFromCookie = document.cookie
+    .split("; ")
+    .find((cookie) => cookie.startsWith("lms_token=") || cookie.startsWith("auth="))
+    ?.split("=")[1];
+
+  return tokenFromCookie ? decodeURIComponent(tokenFromCookie) : null;
+}
+
+function normalizeKey(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function getSubmittedValue(data: Record<string, unknown>, aliases: string[]) {
+  const normalized = Object.fromEntries(
+    Object.entries(data).map(([key, value]) => [normalizeKey(key), String(value ?? "").trim()])
+  ) as Record<string, string>;
+
+  for (const alias of aliases) {
+    const match = normalized[normalizeKey(alias)];
+    if (match) return match;
+  }
+
+  return "-";
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString();
+}
+
+function resolveAddedBy(lead: RecentLeadItem) {
+  const creator = lead.added_by ?? lead.created_by;
+  const creatorName = creator?.name?.trim();
+  const creatorEmail = creator?.email?.trim();
+  const assistantName = lead.assigned_assistant?.name?.trim();
+  const assistantEmail = lead.assigned_assistant?.email?.trim();
+
+  return creatorName || creatorEmail || assistantName || assistantEmail || "Admin";
+}
+
+function mapRecentLead(lead: RecentLeadItem): RecentLeadRecord {
+  const submittedData = lead.submitted_data && typeof lead.submitted_data === "object" ? lead.submitted_data : {};
+  const createdAtTime = lead.created_at ? new Date(lead.created_at).getTime() : 0;
+
+  return {
+    id: lead.id,
+    name: getSubmittedValue(submittedData, ["name", "full name", "lead name", "customer name"]),
+    email: getSubmittedValue(submittedData, ["email", "email address", "mail"]),
+    addedBy: resolveAddedBy(lead),
+    createdAt: formatDate(lead.created_at),
+    createdAtTime: Number.isNaN(createdAtTime) ? 0 : createdAtTime,
+    status: getSubmittedValue(submittedData, ["status", "stage", "lead status"])
+  };
+}
+
+function getPercent(value: number, total: number) {
+  if (total <= 0) return 0;
+  return Math.min(100, Math.max(0, Math.round((value / total) * 100)));
 }
 
 const adminStatCardStyles = [
@@ -113,6 +211,9 @@ function buildCalendarDays(monthDate: Date) {
 
 export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
   const [dealSearch, setDealSearch] = useState("");
+  const [recentLeads, setRecentLeads] = useState<RecentLeadRecord[]>([]);
+  const [isRecentLeadsLoading, setIsRecentLeadsLoading] = useState(false);
+  const [recentLeadsError, setRecentLeadsError] = useState<string | null>(null);
   const [hoveredMonthIndex, setHoveredMonthIndex] = useState<number | null>(null);
   const [leadView, setLeadView] = useState<"monthly" | "quarterly" | "annually">("monthly");
   const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
@@ -120,22 +221,43 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
   const [rangeEnd, setRangeEnd] = useState<Date | null>(new Date(2026, 3, 29));
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date(2026, 3, 1));
   const dateFilterRef = useRef<HTMLDivElement>(null);
-  const filteredOrders = useMemo(() => {
+  const filteredRecentLeads = useMemo(() => {
     const query = dealSearch.trim().toLowerCase();
-    if (!query) return ORDERS;
+    if (!query) return recentLeads;
 
-    return ORDERS.filter((order) =>
-      [order.id, order.customer, order.email, order.service, order.status].some((value) =>
+    return recentLeads.filter((lead) =>
+      [lead.id, lead.name, lead.email, lead.addedBy, lead.createdAt, lead.status].some((value) =>
         value.toLowerCase().includes(query)
       )
     );
-  }, [dealSearch]);
+  }, [dealSearch, recentLeads]);
   const leadsAddedTotal = LEADS_ADDED.reduce((total, value) => total + value, 0);
   const leadsConvertedTotal = LEADS_CONVERTED.reduce((total, value) => total + value, 0);
   const leadConversionRate = Math.round((leadsConvertedTotal / leadsAddedTotal) * 100);
-  const goalTarget = 1200;
-  const goalAchieved = 912;
-  const goalPercent = Math.round((goalAchieved / goalTarget) * 100);
+  const totalLeadStat = stats.find((item) => ["Total Leads", "Total Created"].includes(item.label));
+  const contactedLeadStat = stats.find((item) => item.label === "Total Contacted");
+  const convertedLeadStat = stats.find((item) => item.label === "Total Converted");
+  const interestedLeadStat = stats.find((item) => item.label === "Total Interested");
+  const goalTarget = totalLeadStat?.value ?? 0;
+  const goalAchieved = convertedLeadStat?.value ?? 0;
+  const goalPercent = getPercent(goalAchieved, goalTarget);
+  const interestedPercent = getPercent(interestedLeadStat?.value ?? 0, goalTarget);
+  const contactedPercent = getPercent(contactedLeadStat?.value ?? 0, goalTarget);
+  const leadCategoryItems = [
+    { label: "Total Interested", value: interestedLeadStat?.value ?? 0, percent: interestedPercent, color: "#3158E8" },
+    { label: "Total Converted", value: convertedLeadStat?.value ?? 0, percent: goalPercent, color: "#6F88F6" },
+    { label: "Total Contacted", value: contactedLeadStat?.value ?? 0, percent: contactedPercent, color: "#CBD5E1" }
+  ];
+  let leadCategoryStart = 0;
+  const leadCategoryGradient = [
+    ...leadCategoryItems.map((item) => {
+      const start = leadCategoryStart;
+      const end = Math.min(100, start + item.percent);
+      leadCategoryStart = end;
+      return `${item.color} ${start}% ${end}%`;
+    }),
+    `#E2E8F0 ${leadCategoryStart}% 100%`
+  ].join(",");
   const goalAngle = Math.PI * (1 - goalPercent / 100);
   const goalMarkerX = 120 + 100 * Math.cos(goalAngle);
   const goalMarkerY = 120 - 100 * Math.sin(goalAngle);
@@ -167,6 +289,39 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
 
     setRangeEnd(date);
   };
+
+  useEffect(() => {
+    const loadRecentLeads = async () => {
+      const token = getDashboardToken();
+      if (!token) {
+        setRecentLeadsError("Admin authentication required. Please log in again.");
+        return;
+      }
+
+      setIsRecentLeadsLoading(true);
+      setRecentLeadsError(null);
+
+      try {
+        const response = await api.get<RecentLeadsResponse>("/api/lead/admin/leads", {
+          params: { page: 1, size: 5 },
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        const items = Array.isArray(response.data.items) ? response.data.items : [];
+        const mappedLeads = items
+          .map(mapRecentLead)
+          .sort((a, b) => b.createdAtTime - a.createdAtTime);
+        setRecentLeads(mappedLeads);
+      } catch (error) {
+        setRecentLeadsError(getApiErrorMessage(error, "Unable to load recent leads."));
+      } finally {
+        setIsRecentLeadsLoading(false);
+      }
+    };
+
+    void loadRecentLeads();
+  }, []);
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
@@ -448,19 +603,19 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
             <div>
               <div className="mb-1 flex justify-between text-sm font-medium text-slate-600 dark:text-slate-300">
                 <span>Leads Converted</span>
-                <span>85%</span>
+                <span>{goalPercent}%</span>
               </div>
               <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-800">
-                <div className="h-2 w-[85%] rounded-full bg-brand-600" />
+                <div className="h-2 rounded-full bg-brand-600" style={{ width: `${goalPercent}%` }} />
               </div>
             </div>
             <div>
               <div className="mb-1 flex justify-between text-sm font-medium text-slate-600 dark:text-slate-300">
-                <span>Leads Canceled</span>
-                <span>55%</span>
+                <span>Total Interested</span>
+                <span>{interestedPercent}%</span>
               </div>
               <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-800">
-                <div className="h-2 w-[55%] rounded-full bg-brand-500" />
+                <div className="h-2 rounded-full bg-brand-500" style={{ width: `${interestedPercent}%` }} />
               </div>
             </div>
           </div>
@@ -471,17 +626,31 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
         <Card className="rounded-2xl p-6">
           <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Lead Category</h3>
           <div className="mt-4 grid items-center gap-4 sm:grid-cols-[220px_1fr]">
-            <div className="relative mx-auto h-48 w-48 rounded-full bg-[conic-gradient(#3158E8_0_38%,#6F88F6_38%_71%,#CBD5E1_71%_100%)]">
+            <div
+              className="relative mx-auto h-48 w-48 rounded-full shadow-sm"
+              style={{ background: `conic-gradient(${leadCategoryGradient})` }}
+            >
               <div className="absolute inset-7 rounded-full bg-white dark:bg-slate-900" />
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <p className="text-3xl font-semibold text-slate-900 dark:text-slate-100">3.5K</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Total deals</p>
+                <p className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
+                  {formatNumber(contactedLeadStat?.value ?? 0)}
+                </p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Total Contacted</p>
               </div>
             </div>
             <div className="space-y-4 text-sm">
-              <p className="font-medium text-slate-700 dark:text-slate-200"><span className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#3158E8]" />Affiliate Program 48%</p>
-              <p className="font-medium text-slate-700 dark:text-slate-200"><span className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#6F88F6]" />Direct Buy 33%</p>
-              <p className="font-medium text-slate-700 dark:text-slate-200"><span className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#CBD5E1]" />Adsense 19%</p>
+              {leadCategoryItems.map((item) => (
+                <p
+                  key={item.label}
+                  className="flex items-center justify-between gap-3 font-medium text-slate-700 dark:text-slate-200"
+                >
+                  <span>
+                    <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                    {item.label}
+                  </span>
+                  <span>{item.percent}%</span>
+                </p>
+              ))}
             </div>
           </div>
         </Card>
@@ -506,7 +675,7 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
       <Card className="overflow-x-auto rounded-2xl p-0">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4 dark:border-slate-800">
           <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-            Recent Orders
+            Recent Leads
           </h3>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
             <div className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 sm:w-auto">
@@ -518,51 +687,64 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
                 value={dealSearch}
                 onChange={(event) => setDealSearch(event.target.value)}
                 className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400 dark:text-slate-100 sm:w-56"
-                placeholder="Search deals..."
-                aria-label="Search deals"
+                placeholder="Search leads..."
+                aria-label="Search leads"
               />
             </div>
-            <button
-              type="button"
+            <Link
+              href="/admin/assigned-leads"
               className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-700 dark:text-slate-100"
             >
-              See all
-            </button>
+              More
+            </Link>
           </div>
         </div>
         <table className="min-w-full text-left">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900 dark:text-slate-400">
             <tr>
-              <th className="px-6 py-3">Deal ID</th>
-              <th className="px-6 py-3">Customer</th>
-              <th className="px-6 py-3">Product/Service</th>
-              <th className="px-6 py-3">Deal Value</th>
-              <th className="px-6 py-3">Close Date</th>
+              <th className="px-6 py-3">Lead ID</th>
+              <th className="px-6 py-3">Lead Name</th>
+              <th className="px-6 py-3">Email</th>
+              <th className="px-6 py-3">Assigned To</th>
+              <th className="px-6 py-3">Created</th>
               <th className="px-6 py-3">Status</th>
             </tr>
           </thead>
           <tbody>
-            {filteredOrders.map((order) => (
-              <tr key={order.id} className="border-t border-slate-200 text-sm dark:border-slate-800">
-                <td className="px-6 py-4 font-medium text-brand-700 dark:text-brand-300">{order.id}</td>
-                <td className="px-6 py-4">
-                  <p className="font-medium text-slate-900 dark:text-slate-100">{order.customer}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{order.email}</p>
+            {isRecentLeadsLoading ? (
+              <tr className="border-t border-slate-200 text-sm dark:border-slate-800">
+                <td colSpan={6} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400">
+                  Loading recent leads...
                 </td>
-                <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{order.service}</td>
-                <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{order.value}</td>
-                <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{order.date}</td>
+              </tr>
+            ) : null}
+            {!isRecentLeadsLoading && recentLeadsError ? (
+              <tr className="border-t border-slate-200 text-sm dark:border-slate-800">
+                <td colSpan={6} className="px-6 py-8 text-center text-red-600">
+                  {recentLeadsError}
+                </td>
+              </tr>
+            ) : null}
+            {!isRecentLeadsLoading && !recentLeadsError ? filteredRecentLeads.map((lead) => (
+              <tr key={lead.id} className="border-t border-slate-200 text-sm dark:border-slate-800">
+                <td className="px-6 py-4 font-medium text-brand-700 dark:text-brand-300">{lead.id}</td>
+                <td className="px-6 py-4">
+                  <p className="font-medium text-slate-900 dark:text-slate-100">{lead.name}</p>
+                </td>
+                <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{lead.email}</td>
+                <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{lead.addedBy}</td>
+                <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{lead.createdAt}</td>
                 <td className="px-6 py-4">
                   <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
-                    {order.status}
+                    {lead.status}
                   </span>
                 </td>
               </tr>
-            ))}
-            {!filteredOrders.length ? (
+            )) : null}
+            {!isRecentLeadsLoading && !recentLeadsError && !filteredRecentLeads.length ? (
               <tr className="border-t border-slate-200 text-sm dark:border-slate-800">
                 <td colSpan={6} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400">
-                  No deals found for &quot;{dealSearch}&quot;.
+                  {recentLeads.length ? `No leads found for "${dealSearch}".` : "No recent leads found."}
                 </td>
               </tr>
             ) : null}

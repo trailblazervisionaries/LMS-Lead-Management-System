@@ -216,34 +216,34 @@ export default function AssistantEmailSendingPage() {
   };
 
   return (
-    <section className="relative space-y-6 overflow-hidden lg:space-y-8">
+    <section className="relative -mt-2 space-y-6 overflow-hidden lg:-mt-3 lg:space-y-8">
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-72 bg-[radial-gradient(circle_at_top,_rgba(129,140,248,0.18),_transparent_55%),radial-gradient(circle_at_right,_rgba(16,185,129,0.12),_transparent_40%)]" />
       <div className="pointer-events-none absolute -right-24 top-28 -z-10 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl" />
       <div className="pointer-events-none absolute -left-24 top-64 -z-10 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
 
-      <Card className="overflow-hidden rounded-[28px] border border-slate-200 bg-white/90 dark:border-slate-800 dark:bg-slate-950/90 p-0 shadow-[0_24px_80px_rgba(2,6,23,0.38)] backdrop-blur">
-        <div className="flex flex-col gap-6 px-6 py-6 sm:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-10">
+      <Card className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-0 shadow-[0_14px_40px_rgba(15,23,42,0.10)] dark:border-slate-800 dark:bg-slate-950/90">
+        <div className="flex flex-col gap-5 px-5 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <div className="max-w-2xl">
-            <span className="inline-flex rounded-full border border-indigo-200 bg-indigo-50 dark:border-indigo-500/20 dark:bg-indigo-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-200">
+            <span className="inline-flex rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-600 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-200">
               Email Campaigns
             </span>
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl dark:text-slate-50">Email Sending</h2>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600 sm:text-base dark:text-slate-300">
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl dark:text-slate-50">Email Sending</h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600 sm:text-base dark:text-slate-300">
               Select leads, compose your campaign, and prepare a targeted email blast in one place.
             </p>
           </div>
-          <div className="grid grid-cols-3 gap-3 sm:min-w-[360px]">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/80 px-4 py-3 text-center shadow-sm">
+          <div className="grid grid-cols-3 gap-3 sm:min-w-[390px]">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Total Leads</p>
               <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-50">{totalCount}</p>
             </div>
-            <div className="rounded-2xl border border-indigo-200 bg-indigo-50 dark:border-indigo-500/20 dark:bg-indigo-500/10 px-4 py-3 text-center shadow-sm">
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-center shadow-sm dark:border-indigo-500/20 dark:bg-indigo-500/10">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-700 dark:text-indigo-200">With Email</p>
-              <p className="mt-1 text-xl font-semibold text-indigo-200">{emailableLeadsCount}</p>
+              <p className="mt-1 text-xl font-semibold text-indigo-700 dark:text-indigo-200">{emailableLeadsCount}</p>
             </div>
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 dark:border-emerald-500/20 dark:bg-emerald-500/10 px-4 py-3 text-center shadow-sm">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center shadow-sm dark:border-emerald-500/20 dark:bg-emerald-500/10">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-200">Selected</p>
-              <p className="mt-1 text-xl font-semibold text-emerald-200">{selectedCount}</p>
+              <p className="mt-1 text-xl font-semibold text-emerald-700 dark:text-emerald-200">{selectedCount}</p>
             </div>
           </div>
         </div>
