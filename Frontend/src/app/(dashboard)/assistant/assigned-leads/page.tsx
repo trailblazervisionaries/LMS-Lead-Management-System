@@ -5,10 +5,12 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAssistantAssignedLeads } from "@/hooks/assistant/use-assigned-leads";
 import {
+  deleteAssistantLeadRemark,
   deleteAssistantAssignedLead,
   getAssistantLeadDetails,
   getAssistantLeadHistory,
   getAssistantLeadRemarkDetails,
+  markAssistantLeadRemarkComplete,
   updateAssistantLeadRemark,
   updateAssistantLeadStatus
 } from "@/services/assistant/assigned-leads-service";
@@ -92,6 +94,8 @@ export default function AssistantAssignedLeadsPage() {
     "details"
   );
   const [selectedRemarkToUpdate, setSelectedRemarkToUpdate] = useState<AssistantLeadRemarkItem | null>(null);
+  const [remarkToDelete, setRemarkToDelete] = useState<AssistantLeadRemarkItem | null>(null);
+  const [remarkToComplete, setRemarkToComplete] = useState<AssistantLeadRemarkItem | null>(null);
   const [leadHistory, setLeadHistory] = useState<AssistantLeadHistoryItem[]>([]);
   const [leadHistoryCache, setLeadHistoryCache] = useState<Record<string, AssistantLeadHistoryItem[]>>({});
   const [isLeadDetailsLoading, setIsLeadDetailsLoading] = useState(false);
@@ -99,11 +103,15 @@ export default function AssistantAssignedLeadsPage() {
   const [isLeadHistoryLoading, setIsLeadHistoryLoading] = useState(false);
   const [isUpdatingLeadStatus, setIsUpdatingLeadStatus] = useState(false);
   const [isUpdatingRemark, setIsUpdatingRemark] = useState(false);
+  const [deletingRemarkId, setDeletingRemarkId] = useState<string | null>(null);
+  const [completingRemarkId, setCompletingRemarkId] = useState<string | null>(null);
   const [leadDetailsError, setLeadDetailsError] = useState("");
   const [leadRemarksError, setLeadRemarksError] = useState("");
   const [leadHistoryError, setLeadHistoryError] = useState("");
   const [leadUpdateError, setLeadUpdateError] = useState("");
   const [remarkUpdateError, setRemarkUpdateError] = useState("");
+  const [remarkDeleteError, setRemarkDeleteError] = useState("");
+  const [remarkCompleteError, setRemarkCompleteError] = useState("");
   const [leadUpdateMessage, setLeadUpdateMessage] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [leadStatusForm, setLeadStatusForm] = useState({
@@ -183,8 +191,12 @@ export default function AssistantAssignedLeadsPage() {
     setLeadHistoryError("");
     setLeadUpdateError("");
     setRemarkUpdateError("");
+    setRemarkDeleteError("");
+    setRemarkCompleteError("");
     setLeadUpdateMessage("");
     setSelectedRemarkToUpdate(null);
+    setRemarkToDelete(null);
+    setRemarkToComplete(null);
     setIsLeadDetailsLoading(true);
     setIsLeadRemarksLoading(true);
 
@@ -218,13 +230,19 @@ export default function AssistantAssignedLeadsPage() {
     setLeadHistoryError("");
     setLeadUpdateError("");
     setRemarkUpdateError("");
+    setRemarkDeleteError("");
+    setRemarkCompleteError("");
     setLeadUpdateMessage("");
     setSelectedRemarkToUpdate(null);
+    setRemarkToDelete(null);
+    setRemarkToComplete(null);
     setIsLeadDetailsLoading(false);
     setIsLeadRemarksLoading(false);
     setIsLeadHistoryLoading(false);
     setIsUpdatingLeadStatus(false);
     setIsUpdatingRemark(false);
+    setDeletingRemarkId(null);
+    setCompletingRemarkId(null);
   };
 
   const openLeadHistory = async () => {
@@ -263,6 +281,8 @@ export default function AssistantAssignedLeadsPage() {
     setLeadHistoryError("");
     setLeadUpdateError("");
     setRemarkUpdateError("");
+    setRemarkDeleteError("");
+    setRemarkCompleteError("");
     setSelectedRemarkToUpdate(null);
   };
 
@@ -271,6 +291,8 @@ export default function AssistantAssignedLeadsPage() {
     setSelectedLeadView("update");
     setLeadUpdateError("");
     setRemarkUpdateError("");
+    setRemarkDeleteError("");
+    setRemarkCompleteError("");
     setLeadUpdateMessage("");
     setLeadStatusForm((prev) => ({
       ...prev,
@@ -383,6 +405,100 @@ export default function AssistantAssignedLeadsPage() {
       setRemarkUpdateError(apiError instanceof Error ? apiError.message : "Unable to update remark.");
     } finally {
       setIsUpdatingRemark(false);
+    }
+  };
+
+  const openRemarkDeleteConfirm = (remark: AssistantLeadRemarkItem) => {
+    if (deletingRemarkId) {
+      return;
+    }
+
+    setRemarkDeleteError("");
+    setRemarkToDelete(remark);
+  };
+
+  const closeRemarkDeleteConfirm = () => {
+    if (deletingRemarkId) {
+      return;
+    }
+
+    setRemarkDeleteError("");
+    setRemarkToDelete(null);
+  };
+
+  const confirmDeleteRemark = async () => {
+    if (!remarkToDelete || deletingRemarkId) {
+      return;
+    }
+
+    const remarkLeadId = remarkToDelete.for_lead?.trim() || leadRemarkDetails?.lead_id?.trim() || selectedLeadSummary?.id;
+    if (!remarkLeadId) {
+      setRemarkDeleteError("Lead id is missing for this remark.");
+      return;
+    }
+
+    setRemarkDeleteError("");
+    setDeletingRemarkId(remarkToDelete.id);
+
+    try {
+      await deleteAssistantLeadRemark(remarkLeadId, remarkToDelete.id);
+      const remarkDetails = await getAssistantLeadRemarkDetails(remarkLeadId);
+      setLeadRemarkDetails(remarkDetails);
+      if (selectedRemarkToUpdate?.id === remarkToDelete.id) {
+        setSelectedRemarkToUpdate(null);
+      }
+      setLeadUpdateMessage("Remark deleted successfully.");
+      setRemarkToDelete(null);
+    } catch (apiError) {
+      setRemarkDeleteError(apiError instanceof Error ? apiError.message : "Unable to delete remark.");
+    } finally {
+      setDeletingRemarkId(null);
+    }
+  };
+
+  const openRemarkCompleteConfirm = (remark: AssistantLeadRemarkItem) => {
+    if (completingRemarkId || remark.is_completed) {
+      return;
+    }
+
+    setRemarkCompleteError("");
+    setRemarkToComplete(remark);
+  };
+
+  const closeRemarkCompleteConfirm = () => {
+    if (completingRemarkId) {
+      return;
+    }
+
+    setRemarkCompleteError("");
+    setRemarkToComplete(null);
+  };
+
+  const confirmMarkRemarkComplete = async () => {
+    if (!remarkToComplete || completingRemarkId) {
+      return;
+    }
+
+    const remarkLeadId =
+      remarkToComplete.for_lead?.trim() || leadRemarkDetails?.lead_id?.trim() || selectedLeadSummary?.id;
+    if (!remarkLeadId) {
+      setRemarkCompleteError("Lead id is missing for this remark.");
+      return;
+    }
+
+    setRemarkCompleteError("");
+    setCompletingRemarkId(remarkToComplete.id);
+
+    try {
+      await markAssistantLeadRemarkComplete(remarkLeadId, remarkToComplete.id);
+      const remarkDetails = await getAssistantLeadRemarkDetails(remarkLeadId);
+      setLeadRemarkDetails(remarkDetails);
+      setLeadUpdateMessage("Remark marked complete successfully.");
+      setRemarkToComplete(null);
+    } catch (apiError) {
+      setRemarkCompleteError(apiError instanceof Error ? apiError.message : "Unable to mark remark complete.");
+    } finally {
+      setCompletingRemarkId(null);
     }
   };
 
@@ -686,15 +802,37 @@ export default function AssistantAssignedLeadsPage() {
                                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                     {index === 0 ? "Latest remark" : `Remark ${index + 1}`}
                                   </span>
-                                  <span
-                                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                      remark.is_completed
-                                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                                        : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-                                    }`}
-                                  >
-                                    {remark.is_completed ? "Completed" : "Open follow-up"}
-                                  </span>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span
+                                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                        remark.is_completed
+                                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                          : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                                      }`}
+                                    >
+                                      {remark.is_completed ? "Completed" : "Open follow-up"}
+                                    </span>
+                                    {!remark.is_completed ? (
+                                      <Button
+                                        type="button"
+                                        variant="secondary"
+                                        onClick={() => openRemarkCompleteConfirm(remark)}
+                                        disabled={Boolean(completingRemarkId)}
+                                        className="h-8 rounded-full bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:hover:bg-emerald-950/50"
+                                      >
+                                        {completingRemarkId === remark.id ? "Saving..." : "Mark Complete"}
+                                      </Button>
+                                    ) : null}
+                                    <Button
+                                      type="button"
+                                      variant="secondary"
+                                      onClick={() => openRemarkDeleteConfirm(remark)}
+                                      disabled={Boolean(deletingRemarkId)}
+                                      className="h-8 rounded-full bg-red-50 px-3 text-xs font-semibold text-red-700 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
+                                    >
+                                      {deletingRemarkId === remark.id ? "Deleting..." : "Delete"}
+                                    </Button>
+                                  </div>
                                 </div>
                                 <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-200">
                                   {remark.remarks?.trim() || "-"}
@@ -1068,6 +1206,92 @@ export default function AssistantAssignedLeadsPage() {
         </div>
       </Card>
       )}
+
+      {remarkToDelete ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-700 dark:text-red-300">
+              Warning
+            </p>
+            <h4 className="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
+              Delete this remark?
+            </h4>
+            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+              This remark will be removed from the lead. Please confirm before continuing.
+            </p>
+            <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-200">
+              <p className="font-semibold">Remark preview</p>
+              <p className="mt-2 line-clamp-4 whitespace-pre-wrap">{remarkToDelete.remarks?.trim() || "-"}</p>
+            </div>
+            {remarkDeleteError ? (
+              <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+                {remarkDeleteError}
+              </p>
+            ) : null}
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={closeRemarkDeleteConfirm}
+                disabled={Boolean(deletingRemarkId)}
+              >
+                No
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void confirmDeleteRemark()}
+                disabled={Boolean(deletingRemarkId)}
+                className="bg-red-600 text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-400"
+              >
+                {deletingRemarkId === remarkToDelete.id ? "Deleting..." : "Okay"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {remarkToComplete ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
+              Confirm Complete
+            </p>
+            <h4 className="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
+              Mark this remark complete?
+            </h4>
+            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+              This will mark the selected follow-up remark as completed.
+            </p>
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200">
+              <p className="font-semibold">Remark preview</p>
+              <p className="mt-2 line-clamp-4 whitespace-pre-wrap">{remarkToComplete.remarks?.trim() || "-"}</p>
+            </div>
+            {remarkCompleteError ? (
+              <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+                {remarkCompleteError}
+              </p>
+            ) : null}
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={closeRemarkCompleteConfirm}
+                disabled={Boolean(completingRemarkId)}
+              >
+                No
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void confirmMarkRemarkComplete()}
+                disabled={Boolean(completingRemarkId)}
+                className="bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400"
+              >
+                {completingRemarkId === remarkToComplete.id ? "Saving..." : "Okay"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {leadToDelete ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4">

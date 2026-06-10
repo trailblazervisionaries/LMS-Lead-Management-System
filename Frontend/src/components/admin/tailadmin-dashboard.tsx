@@ -26,6 +26,39 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
 }
 
+const adminStatCardStyles = [
+  {
+    card: "border-indigo-200/70 bg-indigo-50/80 dark:border-indigo-500/20 dark:bg-indigo-500/10",
+    icon: "bg-indigo-600 text-white dark:bg-indigo-500/20 dark:text-indigo-200",
+    value: "text-indigo-700 dark:text-indigo-100",
+    chip: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200"
+  },
+  {
+    card: "border-blue-200/70 bg-blue-50/80 dark:border-blue-500/20 dark:bg-blue-500/10",
+    icon: "bg-blue-600 text-white dark:bg-blue-500/20 dark:text-blue-200",
+    value: "text-blue-700 dark:text-blue-100",
+    chip: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200"
+  },
+  {
+    card: "border-cyan-200/70 bg-cyan-50/80 dark:border-cyan-500/20 dark:bg-cyan-500/10",
+    icon: "bg-cyan-600 text-white dark:bg-cyan-500/20 dark:text-cyan-200",
+    value: "text-cyan-700 dark:text-cyan-100",
+    chip: "bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-200"
+  },
+  {
+    card: "border-amber-200/80 bg-amber-50/80 dark:border-amber-500/20 dark:bg-amber-500/10",
+    icon: "bg-amber-500 text-white dark:bg-amber-500/20 dark:text-amber-200",
+    value: "text-amber-700 dark:text-amber-100",
+    chip: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200"
+  },
+  {
+    card: "border-emerald-200/70 bg-emerald-50/80 dark:border-emerald-500/20 dark:bg-emerald-500/10",
+    icon: "bg-emerald-600 text-white dark:bg-emerald-500/20 dark:text-emerald-200",
+    value: "text-emerald-700 dark:text-emerald-100",
+    chip: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200"
+  }
+];
+
 function pointsFromSeries(series: number[], maxValue: number) {
   const step = CHART_WIDTH / (series.length - 1);
 
@@ -156,20 +189,40 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
 
   return (
     <section className="space-y-6">
-      <div className="grid gap-4 lg:grid-cols-3">
-        {stats.slice(0, 3).map((item) => (
-          <Card key={item.label} className="rounded-2xl border-slate-200/80 p-6 dark:border-slate-800">
-            <p className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl">
-              {formatNumber(item.value)}
-            </p>
-            <div className="mt-7 flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{item.label}</p>
-              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-300">
-                {item.trend}
-              </span>
-            </div>
-          </Card>
-        ))}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        {stats.map((item, index) => {
+          const styles = adminStatCardStyles[index % adminStatCardStyles.length];
+
+          return (
+            <Card
+              key={item.label}
+              className={`min-h-[168px] rounded-2xl border p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${styles.card}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{item.label}</p>
+                  <p className={`mt-4 text-4xl font-semibold tracking-tight ${styles.value}`}>
+                    {formatNumber(item.value)}
+                  </p>
+                </div>
+                <div
+                  className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl shadow-sm ${styles.icon}`}
+                >
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M4 19h16" />
+                    <path d="M7 15V9" />
+                    <path d="M12 15V5" />
+                    <path d="M17 15v-3" />
+                  </svg>
+                </div>
+              </div>
+              <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/70 pt-4 dark:border-white/10">
+                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${styles.chip}`}>{item.trend}</span>
+                <span className="h-2 w-2 rounded-full bg-current text-slate-300 dark:text-slate-600" />
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
@@ -509,7 +562,7 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
             {!filteredOrders.length ? (
               <tr className="border-t border-slate-200 text-sm dark:border-slate-800">
                 <td colSpan={6} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400">
-                  No deals found for "{dealSearch}".
+                  No deals found for &quot;{dealSearch}&quot;.
                 </td>
               </tr>
             ) : null}
