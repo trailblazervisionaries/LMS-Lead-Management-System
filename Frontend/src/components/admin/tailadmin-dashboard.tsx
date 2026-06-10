@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { DashboardStat } from "@/types/dashboard";
 import api from "@/api/axios";
@@ -11,13 +11,7 @@ interface TailAdminDashboardProps {
   stats: DashboardStat[];
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const LEADS_ADDED = [118, 124, 109, 102, 114, 121, 136, 158, 171, 165, 182, 176];
-const LEADS_CONVERTED = [42, 38, 46, 41, 49, 45, 58, 72, 80, 84, 93, 89];
-const CHART_WIDTH = 520;
-const CHART_HEIGHT = 180;
-const CALENDAR_WEEKS = 6;
-const CALENDAR_DAYS = CALENDAR_WEEKS * 7;
+const DEFAULT_FOLLOW_UP_RANGE = "today";
 
 interface RecentLeadItem {
   id: string;
@@ -51,6 +45,47 @@ interface RecentLeadRecord {
   createdAt: string;
   createdAtTime: number;
   status: string;
+}
+
+interface AdminFollowUpItem {
+  id: string;
+  for_lead?: string | null;
+  lead_id?: string | null;
+  remarks?: string | null;
+  next_follow_up_date?: string | null;
+  is_completed?: boolean;
+  is_deleted?: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+interface AdminFollowUpsResponse {
+  items?: AdminFollowUpItem[];
+  followups?: AdminFollowUpItem[];
+  follow_ups?: AdminFollowUpItem[];
+  data?: AdminFollowUpItem[];
+  results?: AdminFollowUpItem[];
+  total_followups?: number;
+  current_page?: number;
+  next_page?: number | null;
+}
+
+interface AdminFollowUpRecord {
+  id: string;
+  leadId: string;
+  remarks: string;
+  dueDate: string;
+  isCompleted: boolean;
+  createdAt: string;
+}
+
+interface FollowUpRangeOption {
+  key: string;
+  label: string;
+  description: string;
+  apiStartDate: string;
+  apiEndDate: string;
+  displayRange: string;
 }
 
 function formatNumber(value: number) {
@@ -94,6 +129,10 @@ function formatDate(value?: string | null) {
   return date.toLocaleDateString();
 }
 
+function formatDateTime(value: string) {
+  return value ? new Date(value).toLocaleString() : "-";
+}
+
 function resolveAddedBy(lead: RecentLeadItem) {
   const creator = lead.added_by ?? lead.created_by;
   const creatorName = creator?.name?.trim();
@@ -122,6 +161,31 @@ function mapRecentLead(lead: RecentLeadItem): RecentLeadRecord {
 function getPercent(value: number, total: number) {
   if (total <= 0) return 0;
   return Math.min(100, Math.max(0, Math.round((value / total) * 100)));
+}
+
+function normalizeFollowUpsResponse(data: unknown): AdminFollowUpItem[] {
+  if (Array.isArray(data)) {
+    return data as AdminFollowUpItem[];
+  }
+
+  if (!data || typeof data !== "object") {
+    return [];
+  }
+
+  const response = data as AdminFollowUpsResponse;
+  const followUps = response.items ?? response.followups ?? response.follow_ups ?? response.data ?? response.results ?? [];
+  return Array.isArray(followUps) ? followUps : [];
+}
+
+function mapFollowUp(followUp: AdminFollowUpItem): AdminFollowUpRecord {
+  return {
+    id: followUp.id,
+    leadId: followUp.for_lead?.trim() || followUp.lead_id?.trim() || "-",
+    remarks: followUp.remarks?.trim() || "-",
+    dueDate: followUp.next_follow_up_date ?? "",
+    isCompleted: Boolean(followUp.is_completed),
+    createdAt: followUp.created_at ?? ""
+  };
 }
 
 const adminStatCardStyles = [
@@ -157,56 +221,91 @@ const adminStatCardStyles = [
   }
 ];
 
-function pointsFromSeries(series: number[], maxValue: number) {
-  const step = CHART_WIDTH / (series.length - 1);
-
-  return series
-    .map((value, index) => {
-      const x = index * step;
-      const y = CHART_HEIGHT - (value / maxValue) * (CHART_HEIGHT - 16) - 8;
-      return `${x},${y}`;
-    })
-    .join(" ");
-}
-
-function getChartPoint(value: number, index: number, maxValue: number) {
-  const step = CHART_WIDTH / (MONTHS.length - 1);
-  return {
-    x: index * step,
-    y: CHART_HEIGHT - (value / maxValue) * (CHART_HEIGHT - 16) - 8
-  };
-}
-
 function addDays(date: Date, days: number) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
 }
 
 function addMonths(date: Date, months: number) {
-  return new Date(date.getFullYear(), date.getMonth() + months, 1);
+  return new Date(date.getFullYear(), date.getMonth() + months, date.getDate());
 }
 
-function isSameDay(a: Date | null, b: Date | null) {
-  if (!a || !b) return false;
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+function formatDateForFollowUpsApi(date: Date): string {
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = String(date.getFullYear());
+  return `${day}${month}${year}`;
 }
 
-function isWithinRange(date: Date, start: Date | null, end: Date | null) {
-  if (!start || !end) return false;
-  const time = date.getTime();
-  return time >= start.getTime() && time <= end.getTime();
+function formatDateRangeLabel(startDate: Date, endDate: Date): string {
+  const formatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const startLabel = formatter.format(startDate);
+  const endLabel = formatter.format(endDate);
+
+  return startLabel === endLabel ? startLabel : `${startLabel} to ${endLabel}`;
 }
 
-function formatRangeLabel(start: Date | null, end: Date | null) {
-  if (!start) return "Select date range";
-  const fmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
-  if (!end) return fmt.format(start);
-  return `${fmt.format(start)} to ${fmt.format(end)}`;
-}
+function buildFollowUpRangeOptions(referenceDate: Date): FollowUpRangeOption[] {
+  const today = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
+  const ranges = [
+    {
+      key: "last-month",
+      label: "Last Month",
+      description: "Past month",
+      startDate: addMonths(today, -1),
+      endDate: today
+    },
+    {
+      key: "last-week",
+      label: "Last Week",
+      description: "Past 7 days",
+      startDate: addDays(today, -7),
+      endDate: today
+    },
+    {
+      key: "past-day",
+      label: "Past Day",
+      description: "Today and previous day",
+      startDate: addDays(today, -1),
+      endDate: today
+    },
+    {
+      key: "today",
+      label: "Today",
+      description: "Current day",
+      startDate: today,
+      endDate: today
+    },
+    {
+      key: "next-day",
+      label: "Next Day",
+      description: "Today and next day",
+      startDate: today,
+      endDate: addDays(today, 1)
+    },
+    {
+      key: "next-week",
+      label: "Next Week",
+      description: "Next 7 days",
+      startDate: today,
+      endDate: addDays(today, 7)
+    },
+    {
+      key: "next-month",
+      label: "Next Month",
+      description: "Next month",
+      startDate: today,
+      endDate: addMonths(today, 1)
+    }
+  ];
 
-function buildCalendarDays(monthDate: Date) {
-  const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
-  const gridStart = addDays(monthStart, -monthStart.getDay());
-  return Array.from({ length: CALENDAR_DAYS }, (_, index) => addDays(gridStart, index));
+  return ranges.map((range) => ({
+    key: range.key,
+    label: range.label,
+    description: range.description,
+    apiStartDate: formatDateForFollowUpsApi(range.startDate),
+    apiEndDate: formatDateForFollowUpsApi(range.endDate),
+    displayRange: formatDateRangeLabel(range.startDate, range.endDate)
+  }));
 }
 
 export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
@@ -214,13 +313,14 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
   const [recentLeads, setRecentLeads] = useState<RecentLeadRecord[]>([]);
   const [isRecentLeadsLoading, setIsRecentLeadsLoading] = useState(false);
   const [recentLeadsError, setRecentLeadsError] = useState<string | null>(null);
-  const [hoveredMonthIndex, setHoveredMonthIndex] = useState<number | null>(null);
-  const [leadView, setLeadView] = useState<"monthly" | "quarterly" | "annually">("monthly");
-  const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
-  const [rangeStart, setRangeStart] = useState<Date | null>(new Date(2026, 3, 23));
-  const [rangeEnd, setRangeEnd] = useState<Date | null>(new Date(2026, 3, 29));
-  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date(2026, 3, 1));
-  const dateFilterRef = useRef<HTMLDivElement>(null);
+  const [selectedFollowUpRange, setSelectedFollowUpRange] = useState(DEFAULT_FOLLOW_UP_RANGE);
+  const [followUpPage, setFollowUpPage] = useState(1);
+  const [followUps, setFollowUps] = useState<AdminFollowUpRecord[]>([]);
+  const [totalFollowUps, setTotalFollowUps] = useState(0);
+  const [currentFollowUpPage, setCurrentFollowUpPage] = useState(1);
+  const [nextFollowUpPage, setNextFollowUpPage] = useState<number | null>(null);
+  const [isFollowUpsLoading, setIsFollowUpsLoading] = useState(false);
+  const [followUpsError, setFollowUpsError] = useState<string | null>(null);
   const filteredRecentLeads = useMemo(() => {
     const query = dealSearch.trim().toLowerCase();
     if (!query) return recentLeads;
@@ -231,9 +331,9 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
       )
     );
   }, [dealSearch, recentLeads]);
-  const leadsAddedTotal = LEADS_ADDED.reduce((total, value) => total + value, 0);
-  const leadsConvertedTotal = LEADS_CONVERTED.reduce((total, value) => total + value, 0);
-  const leadConversionRate = Math.round((leadsConvertedTotal / leadsAddedTotal) * 100);
+  const followUpRangeOptions = useMemo(() => buildFollowUpRangeOptions(new Date()), []);
+  const activeFollowUpRange =
+    followUpRangeOptions.find((option) => option.key === selectedFollowUpRange) ?? followUpRangeOptions[0];
   const totalLeadStat = stats.find((item) => ["Total Leads", "Total Created"].includes(item.label));
   const contactedLeadStat = stats.find((item) => item.label === "Total Contacted");
   const convertedLeadStat = stats.find((item) => item.label === "Total Converted");
@@ -261,34 +361,6 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
   const goalAngle = Math.PI * (1 - goalPercent / 100);
   const goalMarkerX = 120 + 100 * Math.cos(goalAngle);
   const goalMarkerY = 120 - 100 * Math.sin(goalAngle);
-  const maxLeadsValue = Math.max(...LEADS_ADDED, ...LEADS_CONVERTED) + 20;
-  const leadAddedPoints = pointsFromSeries(LEADS_ADDED, maxLeadsValue);
-  const leadConvertedPoints = pointsFromSeries(LEADS_CONVERTED, maxLeadsValue);
-  const activeIndex = hoveredMonthIndex ?? MONTHS.length - 1;
-  const activeAddedValue = LEADS_ADDED[activeIndex];
-  const activeConvertedValue = LEADS_CONVERTED[activeIndex];
-  const activeAddedPoint = getChartPoint(activeAddedValue, activeIndex, maxLeadsValue);
-  const activeConvertedPoint = getChartPoint(activeConvertedValue, activeIndex, maxLeadsValue);
-  const tooltipLeftPercent = Math.min(90, Math.max(10, (activeAddedPoint.x / CHART_WIDTH) * 100));
-  const tooltipTopPercent = Math.max(10, (Math.min(activeAddedPoint.y, activeConvertedPoint.y) / CHART_HEIGHT) * 100 - 8);
-  const calendarDays = buildCalendarDays(calendarMonth);
-  const monthLabel = calendarMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-
-  const onSelectDate = (date: Date) => {
-    if (!rangeStart || (rangeStart && rangeEnd)) {
-      setRangeStart(date);
-      setRangeEnd(null);
-      return;
-    }
-
-    if (date.getTime() < rangeStart.getTime()) {
-      setRangeEnd(rangeStart);
-      setRangeStart(date);
-      return;
-    }
-
-    setRangeEnd(date);
-  };
 
   useEffect(() => {
     const loadRecentLeads = async () => {
@@ -324,22 +396,46 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
   }, []);
 
   useEffect(() => {
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (!dateFilterRef.current?.contains(event.target as Node)) {
-        setIsDateFilterOpen(false);
+    const loadFollowUps = async () => {
+      const token = getDashboardToken();
+      if (!token) {
+        setFollowUpsError("Admin authentication required. Please log in again.");
+        return;
+      }
+
+      setIsFollowUpsLoading(true);
+      setFollowUpsError(null);
+
+      try {
+        const response = await api.get<AdminFollowUpsResponse>(
+          `/api/remark/assistant/followups/${encodeURIComponent(activeFollowUpRange.apiStartDate)}/${encodeURIComponent(activeFollowUpRange.apiEndDate)}`,
+          {
+            params: { page: followUpPage },
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+        const items = normalizeFollowUpsResponse(response.data)
+          .filter((item) => !item.is_deleted)
+          .map(mapFollowUp);
+        setFollowUps(items);
+        setTotalFollowUps(response.data.total_followups ?? items.length);
+        setCurrentFollowUpPage(response.data.current_page ?? followUpPage);
+        setNextFollowUpPage(response.data.next_page ?? null);
+      } catch (error) {
+        setFollowUpsError(getApiErrorMessage(error, "Unable to load follow-ups."));
+      } finally {
+        setIsFollowUpsLoading(false);
       }
     };
 
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, []);
+    void loadFollowUps();
+  }, [activeFollowUpRange.apiEndDate, activeFollowUpRange.apiStartDate, followUpPage]);
 
-  const onChartMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const x = event.clientX - bounds.left;
-    const ratio = Math.min(1, Math.max(0, x / bounds.width));
-    const index = Math.round(ratio * (MONTHS.length - 1));
-    setHoveredMonthIndex(index);
+  const onFollowUpRangeChange = (range: string) => {
+    setSelectedFollowUpRange(range);
+    setFollowUpPage(1);
   };
 
   return (
@@ -380,242 +476,135 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
         })}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
-        <Card className="rounded-2xl p-6">
-          <div className="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 lg:flex-nowrap lg:items-center">
-            <div className="min-w-0 flex-1">
-              <h3 className=" font-semibold leading-tight tracking-tight text-slate-600 dark:text-slate-100 ">
-                Lead Pipeline Trend
-              </h3>
-              {/* <p className="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400 sm:whitespace-nowrap">
-                Monthly leads added vs converted leads
-              </p> */}
+      <div className="space-y-4">
+        <Card className="overflow-hidden rounded-2xl border-slate-200/80 p-0 shadow-sm dark:border-slate-800">
+          <div className="flex flex-col gap-4 border-b border-slate-200 px-6 py-5 dark:border-slate-800 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-700 dark:text-brand-300">
+                Follow-up Planner
+              </p>
+              <h3 className="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">Admin Follow-ups</h3>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                {activeFollowUpRange?.displayRange ?? "Select a date range"}
+              </p>
             </div>
-            <div className="relative flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap lg:gap-3" ref={dateFilterRef}>
-              <div className="grid w-full grid-cols-3 rounded-xl bg-slate-100 p-1 dark:bg-slate-800 sm:inline-flex sm:w-auto">
-                {[
-                  { label: "Monthly", value: "monthly" as const },
-                  { label: "Quarterly", value: "quarterly" as const },
-                  { label: "Annually", value: "annually" as const }
-                ].map((option) => (
+            <div className="flex flex-wrap gap-2">
+              {followUpRangeOptions.map((option) => {
+                const isActive = option.key === selectedFollowUpRange;
+
+                return (
                   <button
-                    key={option.value}
+                    key={option.key}
                     type="button"
-                    onClick={() => setLeadView(option.value)}
+                    onClick={() => onFollowUpRangeChange(option.key)}
                     className={
-                      option.value === leadView
-                        ? "rounded-lg bg-white px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100 sm:min-w-[96px] lg:min-w-[116px] lg:text-sm"
-                        : "rounded-lg px-3 py-2 text-xs font-semibold text-slate-500 transition hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100 sm:min-w-[96px] lg:min-w-[116px] lg:text-sm"
+                      isActive
+                        ? "rounded-xl bg-brand-600 px-3 py-2 text-xs font-semibold text-white shadow-sm dark:bg-brand-500"
+                        : "rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-brand-900 dark:hover:bg-brand-950/30 dark:hover:text-brand-300"
                     }
                   >
                     {option.label}
                   </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsDateFilterOpen((prev) => !prev)}
-                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto sm:justify-start lg:px-4 lg:text-sm"
-              >
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 lg:h-4 lg:w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="5" width="18" height="16" rx="2" />
-                  <path d="M8 3v4M16 3v4M3 10h18" />
-                </svg>
-                {formatRangeLabel(rangeStart, rangeEnd)}
-              </button>
-              {isDateFilterOpen ? (
-                <div className="absolute right-0 top-[calc(100%+10px)] z-30 w-[min(100vw-2rem,460px)] rounded-2xl border border-slate-200 bg-white p-4 shadow-soft dark:border-slate-700 dark:bg-slate-900">
-                  <div className="mb-3 flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setCalendarMonth((prev) => addMonths(prev, -1))}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-                    >
-                      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="m15 18-6-6 6-6" />
-                      </svg>
-                    </button>
-                    <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">{monthLabel}</p>
-                    <button
-                      type="button"
-                      onClick={() => setCalendarMonth((prev) => addMonths(prev, 1))}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-                    >
-                      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="m9 18 6-6-6-6" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-7 gap-y-3 text-center">
-                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                      <span key={day} className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                        {day}
-                      </span>
-                    ))}
-                    {calendarDays.map((day) => {
-                      const muted = day.getMonth() !== calendarMonth.getMonth();
-                      const isStart = isSameDay(day, rangeStart);
-                      const isEnd = isSameDay(day, rangeEnd);
-                      const inRange = isWithinRange(day, rangeStart, rangeEnd);
+                );
+              })}
+            </div>
+          </div>
 
-                      return (
-                        <button
-                          key={day.toISOString()}
-                          type="button"
-                          onClick={() => onSelectDate(day)}
-                          className={[
-                            "mx-auto inline-flex h-9 w-9 items-center justify-center text-lg font-semibold transition",
-                            muted ? "text-slate-400 dark:text-slate-500" : "text-slate-900 dark:text-slate-100",
-                            inRange ? "bg-slate-100 dark:bg-slate-800" : "hover:bg-slate-100 dark:hover:bg-slate-800",
-                            isStart ? "rounded-l-full bg-brand-600 text-white hover:bg-brand-600 dark:bg-brand-600 dark:text-white dark:hover:bg-brand-600" : "",
-                            isEnd ? "rounded-r-full bg-brand-600 text-white hover:bg-brand-600 dark:bg-brand-600 dark:text-white dark:hover:bg-brand-600" : "",
-                            isStart && isEnd ? "rounded-full" : ""
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
-                        >
-                          {day.getDate()}
-                        </button>
-                      );
-                    })}
-                  </div>
+          <div className="grid gap-0 xl:grid-cols-[230px_1fr]">
+            <div className="border-b border-slate-200 bg-slate-50/70 p-5 dark:border-slate-800 dark:bg-slate-950/30 xl:border-b-0 xl:border-r">
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Follow-ups in range</p>
+              <p className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                {formatNumber(totalFollowUps)}
+              </p>
+              <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-300">
+                {activeFollowUpRange?.description ?? "Selected range"}
+              </p>
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Page {currentFollowUpPage}</p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left">
+                <thead className="bg-white text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                  <tr>
+                    <th className="px-5 py-3">Lead ID</th>
+                    <th className="px-5 py-3">Remark</th>
+                    <th className="px-5 py-3">Follow-up Date</th>
+                    <th className="px-5 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isFollowUpsLoading ? (
+                    <tr className="border-t border-slate-200 text-sm dark:border-slate-800">
+                      <td colSpan={4} className="px-5 py-8 text-center text-slate-500 dark:text-slate-400">
+                        Loading follow-ups...
+                      </td>
+                    </tr>
+                  ) : null}
+                  {!isFollowUpsLoading && followUpsError ? (
+                    <tr className="border-t border-slate-200 text-sm dark:border-slate-800">
+                      <td colSpan={4} className="px-5 py-8 text-center text-red-600 dark:text-red-300">
+                        {followUpsError}
+                      </td>
+                    </tr>
+                  ) : null}
+                  {!isFollowUpsLoading && !followUpsError
+                    ? followUps.map((followUp) => (
+                        <tr key={followUp.id} className="border-t border-slate-200 text-sm dark:border-slate-800">
+                          <td className="px-5 py-4 font-medium text-brand-700 dark:text-brand-300">{followUp.leadId}</td>
+                          <td className="max-w-md px-5 py-4 text-slate-700 dark:text-slate-200">
+                            <p className="line-clamp-2">{followUp.remarks}</p>
+                            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                              Added {formatDateTime(followUp.createdAt)}
+                            </p>
+                          </td>
+                          <td className="px-5 py-4 text-slate-700 dark:text-slate-200">
+                            {formatDateTime(followUp.dueDate)}
+                          </td>
+                          <td className="px-5 py-4">
+                            <span
+                              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                followUp.isCompleted
+                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                  : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                              }`}
+                            >
+                              {followUp.isCompleted ? "Completed" : "Open follow-up"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    : null}
+                  {!isFollowUpsLoading && !followUpsError && !followUps.length ? (
+                    <tr className="border-t border-slate-200 text-sm dark:border-slate-800">
+                      <td colSpan={4} className="px-5 py-8 text-center text-slate-500 dark:text-slate-400">
+                        No follow-ups found for this range.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-5 py-4 dark:border-slate-800">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Page {currentFollowUpPage}
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFollowUpPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentFollowUpPage <= 1 || isFollowUpsLoading}
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-100"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFollowUpPage(nextFollowUpPage ?? currentFollowUpPage + 1)}
+                    disabled={!nextFollowUpPage || isFollowUpsLoading}
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-100"
+                  >
+                    Next
+                  </button>
                 </div>
-              ) : null}
-            </div>
-          </div>
-          <div className="mb-4 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl bg-brand-50 px-3 py-2 dark:bg-brand-900/20">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Leads Added</p>
-              <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{formatNumber(leadsAddedTotal)}</p>
-            </div>
-            <div className="rounded-xl bg-emerald-50 px-3 py-2 dark:bg-emerald-900/20">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Leads Converted</p>
-              <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{formatNumber(leadsConvertedTotal)}</p>
-            </div>
-            <div className="rounded-xl bg-slate-100 px-3 py-2 dark:bg-slate-800">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Conversion Rate</p>
-              <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{leadConversionRate}%</p>
-            </div>
-          </div>
-          <div
-            className="relative h-56 rounded-xl bg-gradient-to-b from-brand-100/70 to-white p-4 dark:from-brand-950/20 dark:to-slate-900"
-            onMouseLeave={() => setHoveredMonthIndex(null)}
-          >
-            <svg
-              viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-              className="h-full w-full"
-              onMouseMove={onChartMouseMove}
-            >
-              {[0, 1, 2, 3].map((row) => (
-                <line
-                  key={row}
-                  x1="0"
-                  y1={20 + row * 40}
-                  x2={CHART_WIDTH}
-                  y2={20 + row * 40}
-                  stroke="rgb(203 213 225)"
-                  strokeOpacity="0.45"
-                />
-              ))}
-              <polyline fill="none" stroke="#3158E8" strokeWidth="3.25" strokeLinecap="round" points={leadAddedPoints} />
-              <polyline fill="none" stroke="#22C55E" strokeWidth="3.25" strokeLinecap="round" points={leadConvertedPoints} />
-              {hoveredMonthIndex !== null ? (
-                <>
-                  <line
-                    x1={activeAddedPoint.x}
-                    y1="8"
-                    x2={activeAddedPoint.x}
-                    y2={CHART_HEIGHT - 8}
-                    stroke="#64748B"
-                    strokeOpacity="0.35"
-                    strokeDasharray="4 4"
-                  />
-                  <circle cx={activeAddedPoint.x} cy={activeAddedPoint.y} r="5.5" fill="#3158E8" stroke="white" strokeWidth="2.5" />
-                  <circle cx={activeConvertedPoint.x} cy={activeConvertedPoint.y} r="5.5" fill="#22C55E" stroke="white" strokeWidth="2.5" />
-                </>
-              ) : null}
-            </svg>
-            {hoveredMonthIndex !== null ? (
-              <div
-                className="pointer-events-none absolute z-10 min-w-40 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-xs shadow-soft backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95"
-                style={{ left: `${tooltipLeftPercent}%`, top: `${tooltipTopPercent}%`, transform: "translate(-50%, -110%)" }}
-              >
-                <p className="mb-1 text-base font-semibold text-slate-900 dark:text-slate-100">{MONTHS[activeIndex]}</p>
-                <p className="flex items-center justify-between gap-4 text-slate-600 dark:text-slate-300">
-                  <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-brand-600" />Added</span>
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-100">{formatNumber(activeAddedValue)}</span>
-                </p>
-                <p className="mt-1 flex items-center justify-between gap-4 text-slate-600 dark:text-slate-300">
-                  <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500" />Converted</span>
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-100">{formatNumber(activeConvertedValue)}</span>
-                </p>
-              </div>
-            ) : null}
-          </div>
-          <div className="mt-3 flex flex-wrap gap-4 text-xs font-semibold">
-            <span className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300">
-              <span className="h-2.5 w-2.5 rounded-full bg-brand-600" />
-              Leads Added
-            </span>
-            <span className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              Leads Converted
-            </span>
-          </div>
-          <div className="mt-4 grid grid-cols-6 gap-2 text-center text-xs font-medium text-slate-500 dark:text-slate-400 md:grid-cols-12">
-            {MONTHS.map((month, index) => (
-              <span key={month} className={hoveredMonthIndex === index ? "text-slate-900 dark:text-slate-100" : ""}>
-                {month}
-              </span>
-            ))}
-          </div>
-        </Card>
-
-        <Card className="rounded-2xl p-6">
-          <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Lead Goal Progress</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Target leads for current month</p>
-          <div className="mt-5 flex justify-center">
-            <svg width="240" height="140" viewBox="0 0 240 140" className="h-auto w-full max-w-[240px]">
-              <path
-                d="M 20 120 A 100 100 0 0 1 220 120"
-                fill="none"
-                stroke="#E2E8F0"
-                strokeWidth="14"
-                strokeLinecap="round"
-              />
-              <path
-                d="M 20 120 A 100 100 0 0 1 220 120"
-                fill="none"
-                stroke="#3158E8"
-                strokeWidth="14"
-                strokeLinecap="round"
-                pathLength="100"
-                strokeDasharray={`${goalPercent} 100`}
-              />
-              <circle cx={goalMarkerX} cy={goalMarkerY} r="5.5" fill="#3158E8" stroke="white" strokeWidth="2.5" />
-            </svg>
-          </div>
-          <p className="-mt-8 text-center text-5xl font-semibold text-slate-900 dark:text-slate-100">{goalPercent}%</p>
-          <p className="mt-2 text-center text-sm font-medium text-slate-500 dark:text-slate-400">
-            {formatNumber(goalAchieved)} / {formatNumber(goalTarget)} leads
-          </p>
-          <div className="mt-8 space-y-3">
-            <div>
-              <div className="mb-1 flex justify-between text-sm font-medium text-slate-600 dark:text-slate-300">
-                <span>Leads Converted</span>
-                <span>{goalPercent}%</span>
-              </div>
-              <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-800">
-                <div className="h-2 rounded-full bg-brand-600" style={{ width: `${goalPercent}%` }} />
-              </div>
-            </div>
-            <div>
-              <div className="mb-1 flex justify-between text-sm font-medium text-slate-600 dark:text-slate-300">
-                <span>Total Interested</span>
-                <span>{interestedPercent}%</span>
-              </div>
-              <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-800">
-                <div className="h-2 rounded-full bg-brand-500" style={{ width: `${interestedPercent}%` }} />
               </div>
             </div>
           </div>
@@ -623,51 +612,99 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Card className="rounded-2xl p-6">
-          <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Lead Category</h3>
-          <div className="mt-4 grid items-center gap-4 sm:grid-cols-[220px_1fr]">
+        <Card className="flex min-h-[360px] flex-col rounded-2xl p-4 sm:p-5 lg:p-6">
+          <div>
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 sm:text-2xl">Lead Category</h3>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Lead status distribution</p>
+          </div>
+          <div className="mt-5 grid flex-1 items-center gap-6 md:grid-cols-[minmax(180px,240px)_1fr]">
             <div
-              className="relative mx-auto h-48 w-48 rounded-full shadow-sm"
+              className="relative mx-auto aspect-square w-full max-w-[220px] rounded-full shadow-sm ring-1 ring-slate-200/70 dark:ring-slate-700"
               style={{ background: `conic-gradient(${leadCategoryGradient})` }}
             >
-              <div className="absolute inset-7 rounded-full bg-white dark:bg-slate-900" />
+              <div className="absolute inset-[18%] rounded-full bg-white shadow-inner dark:bg-slate-900" />
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <p className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
+                <p className="text-4xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                   {formatNumber(contactedLeadStat?.value ?? 0)}
                 </p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Total Contacted</p>
+                <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">Total Contacted</p>
               </div>
             </div>
-            <div className="space-y-4 text-sm">
+            <div className="grid gap-3 text-sm">
               {leadCategoryItems.map((item) => (
-                <p
+                <div
                   key={item.label}
-                  className="flex items-center justify-between gap-3 font-medium text-slate-700 dark:text-slate-200"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70 bg-slate-50/80 px-3 py-3 text-slate-700 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200"
                 >
-                  <span>
-                    <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                    {item.label}
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span className="min-w-0">
+                      <span className="block truncate font-semibold">{item.label}</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">{formatNumber(item.value)} leads</span>
+                    </span>
                   </span>
-                  <span>{item.percent}%</span>
-                </p>
+                  <span className="shrink-0 text-base font-semibold text-slate-900 dark:text-slate-100">{item.percent}%</span>
+                </div>
               ))}
             </div>
           </div>
         </Card>
 
-        <Card className="rounded-2xl p-6">
-          <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Upcoming Schedule</h3>
-          <div className="mt-4 space-y-5">
-            {[
-              "Wed, 11 Jan - Business Analytics Press",
-              "Fri, 15 Feb - Business Sprint",
-              "Thu, 18 Mar - Customer Review Meeting"
-            ].map((event) => (
-              <div key={event} className="flex items-start gap-3">
-                <input type="checkbox" className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
-                <p className="text-sm text-slate-700 dark:text-slate-200">{event}</p>
+        <Card className="flex min-h-[360px] flex-col rounded-2xl p-4 sm:p-5 lg:p-6">
+          <div>
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 sm:text-2xl">Lead Goal Progress</h3>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Target leads for current month</p>
+          </div>
+          <div className="mt-6 flex flex-1 flex-col justify-center">
+            <div className="relative mx-auto w-full max-w-[320px]">
+              <svg width="320" height="190" viewBox="0 0 240 140" className="h-auto w-full">
+                <path
+                  d="M 20 120 A 100 100 0 0 1 220 120"
+                  fill="none"
+                  stroke="#E2E8F0"
+                  strokeWidth="14"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M 20 120 A 100 100 0 0 1 220 120"
+                  fill="none"
+                  stroke="#3158E8"
+                  strokeWidth="14"
+                  strokeLinecap="round"
+                  pathLength="100"
+                  strokeDasharray={`${goalPercent} 100`}
+                />
+                <circle cx={goalMarkerX} cy={goalMarkerY} r="5.5" fill="#3158E8" stroke="white" strokeWidth="2.5" />
+              </svg>
+              <div className="absolute inset-x-0 bottom-2 text-center">
+                <p className="text-5xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-6xl">
+                  {goalPercent}%
+                </p>
+                <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+                  {formatNumber(goalAchieved)} / {formatNumber(goalTarget)} leads
+                </p>
               </div>
-            ))}
+            </div>
+          </div>
+          <div className="mt-6 space-y-4 rounded-xl border border-slate-200/70 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/60">
+            <div>
+              <div className="mb-2 flex justify-between gap-3 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                <span>Leads Converted</span>
+                <span className="shrink-0">{goalPercent}%</span>
+              </div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                <div className="h-2.5 rounded-full bg-brand-600" style={{ width: `${goalPercent}%` }} />
+              </div>
+            </div>
+            <div>
+              <div className="mb-2 flex justify-between gap-3 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                <span>Total Interested</span>
+                <span className="shrink-0">{interestedPercent}%</span>
+              </div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                <div className="h-2.5 rounded-full bg-brand-500" style={{ width: `${interestedPercent}%` }} />
+              </div>
+            </div>
           </div>
         </Card>
       </div>

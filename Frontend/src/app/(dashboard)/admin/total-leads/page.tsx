@@ -93,7 +93,6 @@ const LEAD_FIELDS: LeadFieldDefinition[] = [
 
 const SEARCHABLE_FIELDS: LeadFieldKey[] = ["name", "email", "phone"];
 
-const DEFAULT_TEMPLATE_ID = "abca1790977391";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const PAGE_SIZE = 10;
 
@@ -141,21 +140,6 @@ function getAdminUserIdFromToken(token: string): string | null {
   }
 }
 
-function getAdminUserIdCandidatesFromToken(token: string): string[] {
-  try {
-    const decoded = jwtDecode<AuthTokenPayload>(token);
-    return Array.from(
-      new Set(
-        [decoded.user_id?.trim(), decoded.id?.trim(), decoded.sub?.trim()]
-          .filter((value): value is string => Boolean(value))
-          .filter((value) => !value.includes("@"))
-      )
-    );
-  } catch {
-    return [];
-  }
-}
-
 function resolveLeadFieldsFromTemplate(template: FormTemplateItem | null): LeadFieldDefinition[] {
   const templateFields = template?.schema_definition?.fields ?? [];
   if (!templateFields.length) {
@@ -177,35 +161,6 @@ function resolveLeadFieldsFromTemplate(template: FormTemplateItem | null): LeadF
   });
 
   return mappedFields.length ? mappedFields : LEAD_FIELDS;
-}
-
-function resolveTemplateFieldNameMap(template: FormTemplateItem | null): Partial<Record<LeadFieldKey, string>> {
-  const templateFields = template?.schema_definition?.fields ?? [];
-  const map: Partial<Record<LeadFieldKey, string>> = {};
-
-  if (!templateFields.length) {
-    return map;
-  }
-
-  for (const leadField of LEAD_FIELDS) {
-    const matchedTemplateField = templateFields.find((templateField) => {
-      const tokens = [templateField.name, templateField.label, templateField.type]
-        .filter((value): value is string => Boolean(value))
-        .map((value) => normalizeKey(value));
-
-      if (tokens.includes(normalizeKey(leadField.key))) {
-        return true;
-      }
-
-      return leadField.aliases.some((alias) => tokens.includes(normalizeKey(alias)));
-    });
-
-    if (matchedTemplateField?.name) {
-      map[leadField.key] = matchedTemplateField.name;
-    }
-  }
-
-  return map;
 }
 
 function getFallbackTemplateFields(): FormTemplateField[] {
@@ -290,10 +245,8 @@ export default function AdminTotalLeadsPage() {
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [leadFields, setLeadFields] = useState<LeadFieldDefinition[]>(LEAD_FIELDS);
-  const [templateFieldNameMap, setTemplateFieldNameMap] = useState<Partial<Record<LeadFieldKey, string>>>({});
   const [selectedLeadFields, setSelectedLeadFields] = useState<LeadFieldKey[]>(LEAD_FIELDS.map((field) => field.key));
   const [activeTemplateId, setActiveTemplateId] = useState<string>("");
-  const [activeTemplateFormId, setActiveTemplateFormId] = useState<string>("");
   const [filterField, setFilterField] = useState<LeadFieldKey>("name");
   const [filterQuery, setFilterQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -370,9 +323,7 @@ export default function AdminTotalLeadsPage() {
           (a, b) => (a.order ?? 0) - (b.order ?? 0)
         );
         setLeadFields(resolveLeadFieldsFromTemplate(activeTemplate));
-        setTemplateFieldNameMap(resolveTemplateFieldNameMap(activeTemplate));
         setActiveTemplateId(activeTemplate?.id ?? "");
-        setActiveTemplateFormId(activeTemplate?.schema_definition?.form_id ?? "");
         if (resolvedTemplateFields.length) {
           setTemplateFields(resolvedTemplateFields);
           setManualLeadValues(buildManualValuesFromTemplateFields(resolvedTemplateFields));
@@ -383,9 +334,7 @@ export default function AdminTotalLeadsPage() {
         }
       } catch {
         setLeadFields(LEAD_FIELDS);
-        setTemplateFieldNameMap({});
         setActiveTemplateId("");
-        setActiveTemplateFormId("");
         const fallbackFields = getFallbackTemplateFields();
         setTemplateFields(fallbackFields);
         setManualLeadValues(buildManualValuesFromTemplateFields(fallbackFields));

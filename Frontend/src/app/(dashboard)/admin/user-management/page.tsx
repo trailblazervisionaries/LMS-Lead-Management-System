@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
@@ -223,9 +224,8 @@ export default function AdminUserManagementPage() {
       { userId: editingAssistant.user_id, payload },
       {
         onSuccess: (response) => {
-          const successMessage = response.message || "Assistant updated successfully.";
           setSubmitSuccess(null);
-          setUpdateSuccessPopup("Assistant updated successfully.");
+          setUpdateSuccessPopup(response.message || "Assistant updated successfully.");
           closeEditModal();
           queryClient.invalidateQueries({ queryKey: ["assistants"] });
         },
@@ -412,9 +412,11 @@ export default function AdminUserManagementPage() {
                         <tr key={user.user_id} className="border-t border-slate-200 align-top dark:border-slate-700">
                           <td className="px-4 py-3 text-slate-700 dark:text-slate-200">
                             {user.profile_image ? (
-                              <img
+                              <Image
                                 src={user.profile_image}
                                 alt={`${user.name} profile`}
+                                width={40}
+                                height={40}
                                 className="h-10 w-10 rounded-full border border-slate-200 object-cover dark:border-slate-700"
                               />
                             ) : (
@@ -511,9 +513,11 @@ export default function AdminUserManagementPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
                           {user.profile_image ? (
-                            <img
+                            <Image
                               src={user.profile_image}
                               alt={`${user.name} profile`}
+                              width={40}
+                              height={40}
                               className="h-10 w-10 rounded-full border border-slate-200 object-cover dark:border-slate-700"
                             />
                           ) : (
