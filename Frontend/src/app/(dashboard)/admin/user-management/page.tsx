@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
@@ -256,7 +256,7 @@ export default function AdminUserManagementPage() {
   return (
     <>
       <section className="space-y-6 lg:space-y-8">
-        <Card className="overflow-hidden rounded-3xl border-slate-200/80 bg-gradient-to-br from-white via-slate-50 to-blue-50 p-0 shadow-md dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
+        <Card className="overflow-hidden rounded-3xl border-slate-200/80 bg-gradient-to-br from-white via-slate-50 to-blue-50 p-0 shadow-md dark:border-slate-700 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
           <div className="flex flex-col gap-5 px-5 py-6 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-700 dark:text-brand-300">Admin Console</p>
@@ -266,7 +266,7 @@ export default function AdminUserManagementPage() {
               </p>
             </div>
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
-              <div className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
+              <div className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-center shadow-sm dark:border-slate-700 dark:bg-slate-950/80">
                 <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Total</p>
                 <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{totalCount}</p>
               </div>
@@ -379,7 +379,7 @@ export default function AdminUserManagementPage() {
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Created Users</h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">Manage status and account details</p>
             </div>
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
               Total: {totalCount}
             </span>
           </div>
@@ -397,7 +397,7 @@ export default function AdminUserManagementPage() {
               <>
                 <div className="hidden overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-700 md:block">
                   <table className="min-w-full text-left text-sm">
-                    <thead className="bg-slate-50 dark:bg-slate-800/70">
+                    <thead className="bg-slate-50 dark:bg-slate-950/70">
                       <tr>
                         <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Profile</th>
                         <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Name</th>
@@ -420,7 +420,7 @@ export default function AdminUserManagementPage() {
                                 className="h-10 w-10 rounded-full border border-slate-200 object-cover dark:border-slate-700"
                               />
                             ) : (
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-xs font-semibold uppercase text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-xs font-semibold uppercase text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
                                 {user.name
                                   .split(" ")
                                   .map((part) => part[0])
@@ -508,7 +508,7 @@ export default function AdminUserManagementPage() {
                   {assistants.map((user) => (
                     <div
                       key={user.user_id}
-                      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900"
+                      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
@@ -521,7 +521,7 @@ export default function AdminUserManagementPage() {
                               className="h-10 w-10 rounded-full border border-slate-200 object-cover dark:border-slate-700"
                             />
                           ) : (
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-xs font-semibold uppercase text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-xs font-semibold uppercase text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
                               {user.name
                                 .split(" ")
                                 .map((part) => part[0])
@@ -624,7 +624,7 @@ export default function AdminUserManagementPage() {
                 >
                   Previous
                 </Button>
-                <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
                   Page {currentPage} of {Math.max(totalPages, 1)}
                 </span>
                 <Button
@@ -643,7 +643,7 @@ export default function AdminUserManagementPage() {
 
       {updateSuccessPopup ? (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/55 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white px-6 py-5 text-center shadow-xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white px-6 py-5 text-center shadow-xl dark:border-slate-700 dark:bg-slate-950">
             <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{updateSuccessPopup}</p>
           </div>
         </div>
@@ -651,7 +651,7 @@ export default function AdminUserManagementPage() {
 
       {assistantToDelete ? (
         <div className="fixed inset-0 z-[55] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-950">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Delete Assistant</h3>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
               Do you Really Wanted To Delete This assistant ({assistantToDelete.name})?
@@ -676,7 +676,7 @@ export default function AdminUserManagementPage() {
 
       {editingAssistant ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-4xl rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:p-7">
+          <div className="w-full max-w-4xl rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-950 sm:p-7">
             <div className="mb-5 flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Update Assistant</h3>
@@ -762,3 +762,5 @@ export default function AdminUserManagementPage() {
     </>
   );
 }
+
+

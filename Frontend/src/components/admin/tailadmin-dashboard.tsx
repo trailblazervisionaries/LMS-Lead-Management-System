@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -358,7 +358,7 @@ function buildFollowUpRangeOptions(referenceDate: Date): FollowUpRangeOption[] {
 
 function getStatusStyle(status: string) {
   const s = status.toLowerCase();
-  if (s === "-" || !s) return "bg-slate-100 text-slate-500 ring-slate-200/60 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700";
+  if (s === "-" || !s) return "bg-slate-100 text-slate-500 ring-slate-200/60 dark:bg-slate-950 dark:text-slate-400 dark:ring-slate-700";
   if (s.includes("convert") || s.includes("success") || s.includes("won"))
     return "bg-emerald-50 text-emerald-700 ring-emerald-200/60 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-800";
   if (s.includes("interest"))
@@ -369,7 +369,7 @@ function getStatusStyle(status: string) {
     return "bg-amber-50 text-amber-700 ring-amber-200/60 dark:bg-amber-950/30 dark:text-amber-300 dark:ring-amber-800";
   if (s.includes("lost") || s.includes("reject") || s.includes("cancel"))
     return "bg-red-50 text-red-600 ring-red-200/60 dark:bg-red-950/30 dark:text-red-300 dark:ring-red-800";
-  return "bg-slate-100 text-slate-600 ring-slate-200/60 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700";
+  return "bg-slate-100 text-slate-600 ring-slate-200/60 dark:bg-slate-950 dark:text-slate-300 dark:ring-slate-700";
 }
 
 function getNameInitials(name: string) {
@@ -587,7 +587,7 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
       </div>
 
       {/* ── Follow-up Planner ── */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-950">
         {/* Header */}
         <div className="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 dark:border-slate-800 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-center gap-3">
@@ -610,7 +610,7 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
 
           {/* Range tabs */}
           <div className="flex overflow-x-auto pb-0.5 xl:overflow-visible">
-            <div className="flex gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800/60">
+            <div className="flex gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-950/60">
               {followUpRangeOptions.map((option) => {
                 const isActive = option.key === selectedFollowUpRange;
                 return (
@@ -620,7 +620,7 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
                     onClick={() => onFollowUpRangeChange(option.key)}
                     className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-150 ${
                       isActive
-                        ? "bg-white text-brand-700 shadow-sm ring-1 ring-slate-200/80 dark:bg-slate-900 dark:text-brand-300 dark:ring-slate-700"
+                        ? "bg-white text-brand-700 shadow-sm ring-1 ring-slate-200/80 dark:bg-slate-950 dark:text-brand-300 dark:ring-slate-700"
                         : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
                     }`}
                   >
@@ -697,7 +697,7 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
                   ? followUps.map((followUp) => (
                       <tr
                         key={followUp.id}
-                        className="group/row transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/30"
+                        className="group/row transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-900/30"
                       >
                         <td className="px-5 py-4">
                           <span className="font-mono text-xs font-semibold text-brand-700 dark:text-brand-300">
@@ -757,7 +757,7 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
                   type="button"
                   onClick={() => setFollowUpPage((prev) => Math.max(prev - 1, 1))}
                   disabled={currentFollowUpPage <= 1 || isFollowUpsLoading}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-900"
                 >
                   <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M19 12H5M12 5l-7 7 7 7" />
@@ -768,7 +768,7 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
                   type="button"
                   onClick={() => setFollowUpPage(nextFollowUpPage ?? currentFollowUpPage + 1)}
                   disabled={!nextFollowUpPage || isFollowUpsLoading}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-900"
                 >
                   Next
                   <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -784,7 +784,7 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
       {/* ── Charts Row ── */}
       <div className="grid gap-5 xl:grid-cols-2">
         {/* Lead Category Donut */}
-        <div className="flex min-h-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex min-h-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-950">
           <div className="border-b border-slate-100 px-6 py-5 dark:border-slate-800">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400">
@@ -807,7 +807,7 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
                 className="relative mx-auto aspect-square w-full max-w-[200px] rounded-full"
                 style={{ background: `conic-gradient(${leadCategoryGradient})` }}
               >
-                <div className="absolute inset-[16%] rounded-full bg-white shadow-[inset_0_2px_8px_rgba(0,0,0,0.06)] dark:bg-slate-900" />
+                <div className="absolute inset-[16%] rounded-full bg-white shadow-[inset_0_2px_8px_rgba(0,0,0,0.06)] dark:bg-slate-950" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
                   <p className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
                     {formatNumber(contactedLeadStat?.value ?? 0)}
@@ -819,7 +819,7 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
               {/* Legend */}
               <div className="space-y-3">
                 {leadCategoryItems.map((item) => (
-                  <div key={item.label} className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-800/40">
+                  <div key={item.label} className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-950/40">
                     <div className="flex items-center justify-between gap-2">
                       <span className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
                         <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
@@ -842,7 +842,7 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
         </div>
 
         {/* Goal Progress Arc */}
-        <div className="flex min-h-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex min-h-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-950">
           <div className="border-b border-slate-100 px-6 py-5 dark:border-slate-800">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400">
@@ -910,7 +910,7 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
             </div>
 
             {/* Progress bars */}
-            <div className="mt-4 space-y-3 rounded-2xl border border-slate-100 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-800/30">
+            <div className="mt-4 space-y-3 rounded-2xl border border-slate-100 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-950/30">
               <div>
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -947,11 +947,11 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
       </div>
 
       {/* ── Recent Leads Table ── */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-950">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4 dark:border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-500 dark:bg-slate-950 dark:text-slate-400">
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                 <circle cx="9" cy="7" r="4" />
@@ -966,7 +966,7 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
 
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
             {/* Search */}
-            <div className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 transition focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:focus-within:border-brand-600 dark:focus-within:ring-brand-900/30 sm:w-auto">
+            <div className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 transition focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-100 dark:border-slate-700 dark:bg-slate-950 dark:focus-within:border-brand-600 dark:focus-within:ring-brand-900/30 sm:w-auto">
               <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="11" cy="11" r="7" />
                 <path d="M20 20l-3.5-3.5" />
@@ -993,7 +993,7 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
             </div>
             <Link
               href="/admin/assigned-leads"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-900"
             >
               View All
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1048,7 +1048,7 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
                 ? filteredRecentLeads.map((lead) => (
                     <tr
                       key={lead.id}
-                      className="group/row transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/30"
+                      className="group/row transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-900/30"
                     >
                       <td className="px-5 py-4">
                         <span className="font-mono text-xs font-semibold text-brand-700 dark:text-brand-300">
@@ -1111,3 +1111,5 @@ export function TailAdminDashboard({ stats }: TailAdminDashboardProps) {
     </section>
   );
 }
+
+

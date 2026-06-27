@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useAdminProfile } from "@/hooks/admin/use-admin-profile";
@@ -38,7 +38,7 @@ interface InfoFieldProps {
 function InfoField({ icon, label, value }: InfoFieldProps) {
   return (
     <div className="flex items-start gap-3">
-      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400 dark:bg-slate-800/70 dark:text-slate-500">
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400 dark:bg-slate-950/70 dark:text-slate-500">
         {icon}
       </div>
       <div className="min-w-0 flex-1">
@@ -74,8 +74,8 @@ export default function AdminProfilePage() {
       {/* ── Loading Skeleton ── */}
       {isLoading ? (
         <div className="animate-pulse space-y-5">
-          <div className="h-72 rounded-2xl bg-slate-100 dark:bg-slate-800" />
-          <div className="h-44 rounded-2xl bg-slate-100 dark:bg-slate-800" />
+          <div className="h-72 rounded-2xl bg-slate-100 dark:bg-slate-950" />
+          <div className="h-44 rounded-2xl bg-slate-100 dark:bg-slate-950" />
         </div>
       ) : null}
 
@@ -97,7 +97,7 @@ export default function AdminProfilePage() {
       {data ? (
         <>
           {/* ── Hero Card ── */}
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-950">
             {/* Gradient Banner */}
             <div className="relative h-36 bg-gradient-to-br from-brand-700 via-brand-600 to-blue-400 sm:h-40">
               <svg
@@ -167,7 +167,7 @@ export default function AdminProfilePage() {
                         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${
                           data.is_active
                             ? "bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 dark:ring-emerald-800"
-                            : "bg-slate-100 text-slate-500 ring-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700"
+                            : "bg-slate-100 text-slate-500 ring-slate-200 dark:bg-slate-950 dark:text-slate-400 dark:ring-slate-700"
                         }`}
                       >
                         <span className={`h-1.5 w-1.5 rounded-full ${data.is_active ? "bg-emerald-500" : "bg-slate-400"}`} />
@@ -270,11 +270,11 @@ export default function AdminProfilePage() {
           </div>
 
           {/* ── Address Card ── */}
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-950">
             {/* Card header */}
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5 dark:border-slate-800 sm:px-8">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-500 dark:bg-slate-950 dark:text-slate-400">
                   <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
                     <circle cx="12" cy="9" r="2.5" />
@@ -286,7 +286,7 @@ export default function AdminProfilePage() {
                 </div>
               </div>
               <Link href="/admin/profile/edit">
-                <button className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
+                <button className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-700">
                   <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M12 20h9" />
                     <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
@@ -345,3 +345,5 @@ export default function AdminProfilePage() {
     </section>
   );
 }
+
+

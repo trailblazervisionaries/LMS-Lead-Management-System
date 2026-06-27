@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { SectionPage } from "@/components/admin/section-page";
 
@@ -12,5 +12,7 @@ export default function AdminAllLogsPage() {
     </>
   );
 }
+
+
 
 

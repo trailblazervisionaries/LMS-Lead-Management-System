@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
@@ -336,7 +336,7 @@ export default function AdminAssignedLeadsPage() {
 
   return (
     <section className="space-y-6 lg:space-y-8">
-      <Card className="overflow-hidden rounded-3xl border-slate-200/80 bg-gradient-to-br from-white via-slate-50 to-emerald-50 p-0 shadow-md dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
+      <Card className="overflow-hidden rounded-3xl border-slate-200/80 bg-gradient-to-br from-white via-slate-50 to-emerald-50 p-0 shadow-md dark:border-slate-700 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
         <div className="flex flex-col gap-5 px-5 py-6 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
@@ -348,7 +348,7 @@ export default function AdminAssignedLeadsPage() {
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            <div className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
+            <div className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-center shadow-sm dark:border-slate-700 dark:bg-slate-950/80">
               <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Total Leads</p>
               <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{totalCount}</p>
             </div>
@@ -377,7 +377,7 @@ export default function AdminAssignedLeadsPage() {
             <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Leads List</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400">Only assigned leads are shown here.</p>
           </div>
-          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
             Assigned shown: {assignedCountInPage}
           </span>
         </div>
@@ -385,7 +385,7 @@ export default function AdminAssignedLeadsPage() {
         <div className="p-5 sm:p-6">
           <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-700">
             <table className="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-slate-700">
-              <thead className="bg-slate-50 dark:bg-slate-800/60">
+              <thead className="bg-slate-50 dark:bg-slate-950/60">
 	                <tr>
 	                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Lead ID</th>
 	                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Name</th>
@@ -406,7 +406,7 @@ export default function AdminAssignedLeadsPage() {
 	                ) : null}
                 {!isLoading &&
                   assignedLeads.map((lead) => (
-                    <tr key={lead.id} className="transition hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                    <tr key={lead.id} className="transition hover:bg-slate-50/70 dark:hover:bg-slate-900/40">
                       <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200">{lead.id}</td>
                       <td className="px-4 py-3 text-slate-900 dark:text-slate-100">{lead.name}</td>
                       <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{lead.email}</td>
@@ -431,7 +431,7 @@ export default function AdminAssignedLeadsPage() {
                                       }))
                                     }
                                     disabled={isLoadingAssistants || !hasAssistantOptions}
-                                    className="h-9 w-full min-w-[180px] rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-700 outline-none transition focus:border-brand-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                    className="h-9 w-full min-w-[180px] rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-700 outline-none transition focus:border-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                                   >
                                     <option value="">
                                       {isLoadingAssistants
@@ -518,3 +518,5 @@ export default function AdminAssignedLeadsPage() {
     </section>
   );
 }
+
+

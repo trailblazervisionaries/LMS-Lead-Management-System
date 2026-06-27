@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ButtonHTMLAttributes, forwardRef } from "react";
 import { cn } from "@/lib/cn";
@@ -7,7 +7,7 @@ const buttonVariants = {
   primary:
     "bg-brand-600 text-white shadow-soft hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-400",
   secondary:
-    "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+    "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
 };
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -31,3 +31,4 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 );
 
 Button.displayName = "Button";
+

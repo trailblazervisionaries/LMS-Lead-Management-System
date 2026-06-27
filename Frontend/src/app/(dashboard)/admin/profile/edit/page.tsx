@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -46,7 +46,7 @@ interface FormSectionProps {
 
 function FormSection({ icon, title, description, children }: FormSectionProps) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-950">
       <div className="flex items-start gap-4 border-b border-slate-100 px-6 py-5 dark:border-slate-800 sm:px-8">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400">
           {icon}
@@ -234,9 +234,9 @@ export default function AdminProfileEditPage() {
       {/* ── Loading ── */}
       {isLoading ? (
         <div className="animate-pulse space-y-5">
-          <div className="h-28 rounded-2xl bg-slate-100 dark:bg-slate-800" />
-          <div className="h-72 rounded-2xl bg-slate-100 dark:bg-slate-800" />
-          <div className="h-40 rounded-2xl bg-slate-100 dark:bg-slate-800" />
+          <div className="h-28 rounded-2xl bg-slate-100 dark:bg-slate-950" />
+          <div className="h-72 rounded-2xl bg-slate-100 dark:bg-slate-950" />
+          <div className="h-40 rounded-2xl bg-slate-100 dark:bg-slate-950" />
         </div>
       ) : null}
 
@@ -248,7 +248,7 @@ export default function AdminProfileEditPage() {
       {data ? (
         <>
           {/* ── Avatar Card ── */}
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-950">
             <div className="relative h-20 bg-gradient-to-r from-brand-600 via-brand-500 to-blue-400">
               <svg className="absolute inset-0 h-full w-full opacity-10" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <defs>
@@ -313,9 +313,9 @@ export default function AdminProfileEditPage() {
 
               {/* Divider */}
               <div className="flex items-center gap-3 py-1">
-                <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800" />
+                <div className="h-px flex-1 bg-slate-100 dark:bg-slate-950" />
                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Address</span>
-                <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800" />
+                <div className="h-px flex-1 bg-slate-100 dark:bg-slate-950" />
               </div>
 
               {/* Address lines */}
@@ -510,3 +510,5 @@ export default function AdminProfileEditPage() {
     </section>
   );
 }
+
+

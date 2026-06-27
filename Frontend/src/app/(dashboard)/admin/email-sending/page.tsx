@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
@@ -234,7 +234,7 @@ export default function AdminEmailSendingPage() {
             </p>
           </div>
           <div className="grid grid-cols-3 gap-3 sm:min-w-[360px]">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/80 px-4 py-3 text-center shadow-sm">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950/80 px-4 py-3 text-center shadow-sm">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Total Leads</p>
               <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-50">{totalCount}</p>
             </div>
@@ -284,7 +284,7 @@ export default function AdminEmailSendingPage() {
                     setSearchQuery(event.target.value);
                   }}
                   placeholder="Search by name, email, phone number..."
-                  className="h-11 rounded-xl border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 dark:placeholder:text-slate-500"
+                  className="h-11 rounded-xl border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
               </label>
               <label className="space-y-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
@@ -295,7 +295,7 @@ export default function AdminEmailSendingPage() {
                     setCurrentPage(1);
                     setEmailFilter(event.target.value as "all" | "withEmail" | "missingEmail");
                   }}
-                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-100 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                 >
                   <option value="withEmail">With Email</option>
                   <option value="all">All Leads</option>
@@ -304,10 +304,10 @@ export default function AdminEmailSendingPage() {
               </label>
             </div>
 
-            <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-900/40">
+            <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-950/40">
               <div className="overflow-x-auto">
                 <table className="min-w-[860px] w-full divide-y divide-slate-200 text-left text-xs sm:text-sm dark:divide-slate-700/70">
-                  <thead className="bg-slate-100 dark:bg-slate-900/80">
+                  <thead className="bg-slate-100 dark:bg-slate-950/80">
                     <tr>
                       <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">Select</th>
                       <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">Lead</th>
@@ -325,7 +325,7 @@ export default function AdminEmailSendingPage() {
                     {!isLoading && pageLeads.map((lead) => {
                       const hasValidEmail = lead.email.includes("@");
                       return (
-                        <tr key={lead.id} className="transition hover:bg-slate-100/80 dark:hover:bg-slate-800/60">
+                        <tr key={lead.id} className="transition hover:bg-slate-100/80 dark:hover:bg-slate-900/60">
                           <td className="px-4 py-3 align-top">
                             <input
                               type="checkbox"
@@ -413,7 +413,7 @@ export default function AdminEmailSendingPage() {
                 value={subject}
                 onChange={(event) => setSubject(event.target.value)}
                 placeholder="Example: Product Update for This Week"
-                className="h-11 rounded-xl border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 dark:placeholder:text-slate-500"
+                className="h-11 rounded-xl border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-100 dark:placeholder:text-slate-500"
               />
             </label>
             <label className="space-y-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
@@ -422,12 +422,12 @@ export default function AdminEmailSendingPage() {
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
                 placeholder="Write your email content..."
-                className="min-h-[230px] w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 dark:placeholder:text-slate-500"
+                className="min-h-[230px] w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-100 dark:placeholder:text-slate-500"
               />
             </label>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-900/50 p-4">
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-950/50 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Campaign Summary</p>
             <div className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-200">
               <p>Selected leads: {selectedLeadIds.length}</p>
@@ -437,7 +437,7 @@ export default function AdminEmailSendingPage() {
             </div>
           </div>
 
-          <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-900/50 p-4">
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-950/50 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Recipients</p>
             {selectedWithEmail.length ? (
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -516,7 +516,7 @@ export default function AdminEmailSendingPage() {
 
       {confirmModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4">
-          <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-950">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-700 dark:text-indigo-300">
               Confirm Send
             </p>
@@ -529,7 +529,7 @@ export default function AdminEmailSendingPage() {
                 : "This will send the email only to the selected recipients with valid email addresses."}
             </p>
 
-            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
               <div className="space-y-1 text-sm text-slate-700 dark:text-slate-200">
                 <p>Subject: {subject.trim() || "No subject yet"}</p>
                 <p>Message: {message.trim() ? `${message.trim().slice(0, 110)}${message.trim().length > 110 ? "..." : ""}` : "No message yet"}</p>
@@ -556,4 +556,5 @@ export default function AdminEmailSendingPage() {
     </section>
   );
 }
+
 

@@ -172,7 +172,7 @@ export function Sidebar({ role, isCollapsed, isMobileOpen, onCloseMobile }: Side
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex flex-col overflow-y-auto border-r border-slate-200 bg-white transition-transform duration-300 dark:border-slate-800/80 dark:bg-slate-950 md:static md:z-auto md:h-screen md:shadow-none md:transition-all md:duration-300",
+          "fixed inset-y-0 left-0 z-40 flex flex-col overflow-y-auto border-r border-slate-200 bg-white transition-transform duration-300 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden dark:border-slate-800/80 dark:bg-slate-950 md:static md:z-auto md:h-screen md:shadow-none md:transition-all md:duration-300",
           isMobileOpen ? "translate-x-0" : "-translate-x-full",
           "md:translate-x-0",
           isCollapsed ? "md:w-[72px]" : "md:w-[260px]",
@@ -215,7 +215,7 @@ export function Sidebar({ role, isCollapsed, isMobileOpen, onCloseMobile }: Side
         </div>
 
         {/* ── Navigation ── */}
-        <nav className={cn("flex-1 overflow-y-auto py-4", isCollapsed ? "md:px-2" : "px-3")}>
+        <nav className={cn("flex-1 overflow-y-auto py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", isCollapsed ? "md:px-2" : "px-3")}>
           {NAV_GROUPS[role].map((group, groupIndex) => (
             <div key={group.label} className={cn(groupIndex > 0 && "mt-5")}>
               {/* Group label — hidden when collapsed */}

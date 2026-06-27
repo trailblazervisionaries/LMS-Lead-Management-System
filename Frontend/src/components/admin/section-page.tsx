@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Card } from "@/components/ui/card";
 
@@ -22,3 +22,5 @@ export function SectionPage({ title, description }: SectionPageProps) {
     </section>
   );
 }
+
+

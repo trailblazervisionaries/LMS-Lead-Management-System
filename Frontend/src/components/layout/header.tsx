@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -226,7 +226,7 @@ export function Header({ role, isSidebarCollapsed, onToggleSidebar }: HeaderProp
 
         {/* ── Profile Dropdown ── */}
         {isProfileOpen ? (
-          <div className="absolute right-0 top-[calc(100%+10px)] z-30 w-[min(92vw,256px)] overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_20px_60px_-10px_rgba(15,23,42,0.18)] dark:border-slate-700/80 dark:bg-slate-900 dark:shadow-[0_20px_60px_-10px_rgba(0,0,0,0.5)]">
+          <div className="absolute right-0 top-[calc(100%+10px)] z-30 w-[min(92vw,256px)] overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_20px_60px_-10px_rgba(15,23,42,0.18)] dark:border-slate-700/80 dark:bg-slate-950 dark:shadow-[0_20px_60px_-10px_rgba(0,0,0,0.5)]">
             {/* Gradient header */}
             <div className="relative bg-gradient-to-br from-brand-600 via-brand-500 to-blue-400 px-5 pb-5 pt-5">
               {/* Subtle grid watermark */}
@@ -265,9 +265,9 @@ export function Header({ role, isSidebarCollapsed, onToggleSidebar }: HeaderProp
               <button
                 type="button"
                 onClick={onViewProfile}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800/70"
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900/70"
               >
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-900 dark:text-slate-400">
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M2.1 12a10.7 10.7 0 0 1 19.8 0 10.7 10.7 0 0 1-19.8 0z" />
                     <circle cx="12" cy="12" r="3" />
@@ -278,9 +278,9 @@ export function Header({ role, isSidebarCollapsed, onToggleSidebar }: HeaderProp
               <button
                 type="button"
                 onClick={onOpenProfile}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800/70"
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900/70"
               >
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-900 dark:text-slate-400">
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="8" r="4" />
                     <path d="M4 20a8 8 0 0 1 16 0" />
@@ -291,7 +291,7 @@ export function Header({ role, isSidebarCollapsed, onToggleSidebar }: HeaderProp
             </div>
 
             {/* Divider */}
-            <div className="mx-3 h-px bg-slate-100 dark:bg-slate-800" />
+            <div className="mx-3 h-px bg-slate-100 dark:bg-slate-900" />
 
             {/* Sign out */}
             <div className="p-1.5">
@@ -316,3 +316,4 @@ export function Header({ role, isSidebarCollapsed, onToggleSidebar }: HeaderProp
     </header>
   );
 }
+

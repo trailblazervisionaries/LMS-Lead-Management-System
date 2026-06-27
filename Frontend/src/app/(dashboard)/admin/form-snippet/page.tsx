@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
@@ -187,7 +187,7 @@ export default function AdminFormSnippetPage() {
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:min-w-[280px]">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-center dark:border-slate-700 dark:bg-slate-900/60">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-center dark:border-slate-700 dark:bg-slate-950/60">
               <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Templates</p>
               <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{templates.length}</p>
             </div>
@@ -206,30 +206,30 @@ export default function AdminFormSnippetPage() {
             ) : null}
 
             {isLoadingTemplates ? (
-              <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-400">
+              <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-400">
                 Loading template information...
               </p>
             ) : null}
 
             {!isLoadingTemplates && !templates.length && !templatesError ? (
-              <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-400">
+              <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-400">
                 No lead form templates found.
               </p>
             ) : null}
             <div className="grid gap-3 md:grid-cols-3">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/50">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Selected Form</p>
                 <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
                   {selectedTemplate?.schema_definition?.form_name ?? "-"}
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/50">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Template ID</p>
                 <p className="mt-2 break-all text-sm font-semibold text-slate-900 dark:text-slate-100">
                   {selectedTemplate?.id ?? "-"}
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/50">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</p>
                 <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
                   {selectedTemplate?.schema_definition?.status ?? "-"}
@@ -292,7 +292,7 @@ export default function AdminFormSnippetPage() {
                 {selectedTemplate?.schema_definition?.fields?.length ? (
                   <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
                     <table className="min-w-full text-left text-sm">
-                      <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
+                      <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/60 dark:text-slate-400">
                         <tr>
                           <th className="px-3 py-3 font-semibold">Label</th>
                           <th className="px-3 py-3 font-semibold">Name</th>
@@ -322,3 +322,5 @@ export default function AdminFormSnippetPage() {
     </section>
   );
 }
+
+
