@@ -191,7 +191,7 @@ export default function AssistantTotalLeadsPage() {
 
   return (
     <section className="mx-auto w-full space-y-4 lg:space-y-5">
-      <Card className="overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-slate-50 to-cyan-50 p-0 shadow-sm dark:border-slate-700/80 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
+      <Card className="overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-slate-50 to-cyan-50 p-0 shadow-sm dark:border-slate-800 dark:from-black dark:via-black dark:to-slate-950">
         <div className="flex flex-col gap-4 px-4 py-5 sm:px-5 lg:flex-row lg:items-center lg:justify-between lg:px-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-700 dark:text-brand-300">Lead Operations</p>
@@ -201,7 +201,7 @@ export default function AssistantTotalLeadsPage() {
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <div className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900/75">
+            <div className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-center shadow-sm dark:border-slate-800 dark:bg-black">
               <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Fields</p>
               <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{templateFieldCount}</p>
             </div>
@@ -222,7 +222,7 @@ export default function AssistantTotalLeadsPage() {
       </Card>
 
       {isLoading ? (
-        <Card className="rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-sm dark:border-slate-700/80 dark:bg-slate-900/70">
+        <Card className="rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-sm dark:border-slate-800 dark:bg-black">
           <p className="text-sm text-slate-600 dark:text-slate-300">Loading lead templates...</p>
         </Card>
       ) : null}
@@ -241,7 +241,7 @@ export default function AssistantTotalLeadsPage() {
 
       {hasAssistantAdminId ? (
         <>
-          <Card className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-700/80 dark:bg-slate-900/70 sm:p-5">
+          <Card className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-black sm:p-5">
             <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Lead Structure</p>
             <div className="mt-2.5 flex flex-wrap gap-2">
               {templateFields
@@ -257,7 +257,7 @@ export default function AssistantTotalLeadsPage() {
             </div>
           </Card>
 
-          <Card className="rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-sm dark:border-slate-700/80 dark:bg-slate-900/70 sm:p-6">
+          <Card className="rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-sm dark:border-slate-800 dark:bg-black sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Add Lead Manually</h3>
@@ -265,7 +265,7 @@ export default function AssistantTotalLeadsPage() {
                   This form is generated from the active lead template and saves the lead as assistant collected data.
                 </p>
               </div>
-              <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
                 Collected from: Assistant
               </div>
             </div>
@@ -291,7 +291,7 @@ export default function AssistantTotalLeadsPage() {
                           placeholder={placeholder}
                           value={value}
                           onChange={(event) => handleManualInput(fieldName, event.target.value)}
-                          className="min-h-[110px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-brand-900"
+                          className="min-h-[110px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-brand-900"
                         />
                       </label>
                     );
@@ -308,7 +308,7 @@ export default function AssistantTotalLeadsPage() {
                         <select
                           value={value}
                           onChange={(event) => handleManualInput(fieldName, event.target.value)}
-                          className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-brand-900"
+                          className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-brand-900"
                         >
                           <option value="">Select {label}</option>
                           {options.map((option) => (
@@ -372,12 +372,12 @@ export default function AssistantTotalLeadsPage() {
             ) : null}
           </Card>
 
-          <Card className="h-full rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-sm dark:border-slate-700/80 dark:bg-slate-900/70 sm:p-6">
+          <Card className="h-full rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-sm dark:border-slate-800 dark:bg-black sm:p-6">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Import Leads From Excel</h3>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
               Upload `.xlsx`, `.xls` or `.csv`. We auto-map common columns like Name, Email, Phone, Company, Source and Status.
             </p>
-            <label className="mt-4 flex min-h-[180px] cursor-pointer items-center justify-center rounded-xl border border-dashed border-slate-300 px-4 py-8 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/50">
+            <label className="mt-4 flex min-h-[180px] cursor-pointer items-center justify-center rounded-xl border border-dashed border-slate-300 px-4 py-8 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-950">
               <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleExcelUpload} />
               Click to upload Excel/CSV file
             </label>

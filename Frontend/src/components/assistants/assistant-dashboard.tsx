@@ -167,7 +167,7 @@ export function AssistantDashboard({
                   className={
                     isActive
                       ? "rounded-xl bg-brand-600 px-3 py-2 text-xs font-semibold text-white shadow-sm dark:bg-brand-500"
-                      : "rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-brand-900 dark:hover:bg-brand-950/30 dark:hover:text-brand-300"
+                      : "rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 dark:border-slate-700 dark:bg-black dark:text-slate-300 dark:hover:border-brand-900 dark:hover:bg-brand-950/30 dark:hover:text-brand-300"
                   }
                 >
                   {option.label}
@@ -178,7 +178,7 @@ export function AssistantDashboard({
         </div>
 
         <div className="grid gap-0 xl:grid-cols-[260px_1fr]">
-          <div className="border-b border-slate-200 bg-slate-50/70 p-5 dark:border-slate-800 dark:bg-slate-950/30 xl:border-b-0 xl:border-r">
+          <div className="border-b border-slate-200 bg-slate-50/70 p-5 dark:border-slate-800 dark:bg-black xl:border-b-0 xl:border-r">
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Follow-ups in range</p>
             <p className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
               {formatNumber(followUps.length)}
@@ -190,7 +190,7 @@ export function AssistantDashboard({
 
           <div className="overflow-x-auto">
             <table className="min-w-full text-left">
-              <thead className="bg-white text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+              <thead className="bg-white text-xs uppercase tracking-wide text-slate-500 dark:bg-black dark:text-slate-400">
                 <tr>
                   <th className="px-5 py-3">Lead ID</th>
                   <th className="px-5 py-3">Remark</th>
@@ -259,7 +259,7 @@ export function AssistantDashboard({
             Recent 10 Assigned Leads
           </h3>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
-            <div className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 sm:w-auto">
+            <div className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-black sm:w-auto">
               <svg viewBox="0 0 24 24" className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="11" cy="11" r="7" />
                 <path d="M20 20l-3.5-3.5" />
@@ -281,7 +281,7 @@ export function AssistantDashboard({
           </div>
         </div>
         <table className="min-w-full text-left">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-black dark:text-slate-400">
             <tr>
               <th className="px-6 py-3">Lead ID</th>
               <th className="px-6 py-3">Lead Name</th>

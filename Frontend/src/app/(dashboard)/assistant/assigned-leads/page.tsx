@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { useAssistantAssignedLeads } from "@/hooks/assistant/use-assigned-leads";
 import {
   deleteAssistantLeadRemark,
@@ -21,6 +19,13 @@ import {
   AssistantLeadRemarkItem,
   AssistantLeadRemarkDetails
 } from "@/types/assistant/assigned-leads";
+import {
+  getMeetingByLead,
+  createMeeting,
+  updateMeeting,
+  deleteMeeting
+} from "@/services/assistant/meeting-service";
+import { MeetingRecord, CreateMeetingPayload, UpdateMeetingPayload } from "@/types/assistant/meeting";
 
 const PAGE_SIZE = 20;
 const LEAD_STATUS_OPTIONS = ["Contacted", "Interested", "Converted"];
@@ -124,6 +129,14 @@ export default function AssistantAssignedLeadsPage() {
     remarks: "",
     isCompleted: false
   });
+  const [activeMeeting, setActiveMeeting] = useState<MeetingRecord | null>(null);
+  const [isMeetingLoading, setIsMeetingLoading] = useState(false);
+  const [meetingError, setMeetingError] = useState("");
+  const [meetingModal, setMeetingModal] = useState<"schedule" | "edit" | "cancel" | null>(null);
+  const [isSubmittingMeeting, setIsSubmittingMeeting] = useState(false);
+  const [meetingFormError, setMeetingFormError] = useState("");
+  const [meetingForm, setMeetingForm] = useState({ topic: "", date: "", time: "", duration_minutes: 60, agenda: "" });
+  const [meetingToast, setMeetingToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const { data, isLoading, isError, error, refetch } = useAssistantAssignedLeads(currentPage, PAGE_SIZE);
 
   const assignedLeads = useMemo<AssistantAssignedLeadRecord[]>(() => {
@@ -171,6 +184,12 @@ export default function AssistantAssignedLeadsPage() {
     }
   }, [currentPage, totalPages]);
 
+  useEffect(() => {
+    if (!meetingToast) return;
+    const timer = setTimeout(() => setMeetingToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [meetingToast]);
+
   const openDeleteConfirm = (lead: AssistantAssignedLeadRecord) => {
     if (deletingLeadId) {
       return;
@@ -217,6 +236,18 @@ export default function AssistantAssignedLeadsPage() {
     } finally {
       setIsLeadRemarksLoading(false);
     }
+
+    setActiveMeeting(null);
+    setMeetingError("");
+    setIsMeetingLoading(true);
+    try {
+      const meeting = await getMeetingByLead(lead.id);
+      setActiveMeeting(meeting);
+    } catch (apiError) {
+      setMeetingError(apiError instanceof Error ? apiError.message : "Unable to load meeting.");
+    } finally {
+      setIsMeetingLoading(false);
+    }
   };
 
   const closeLeadDetails = () => {
@@ -243,6 +274,13 @@ export default function AssistantAssignedLeadsPage() {
     setIsUpdatingRemark(false);
     setDeletingRemarkId(null);
     setCompletingRemarkId(null);
+    setActiveMeeting(null);
+    setIsMeetingLoading(false);
+    setMeetingError("");
+    setMeetingModal(null);
+    setIsSubmittingMeeting(false);
+    setMeetingFormError("");
+    setMeetingToast(null);
   };
 
   const openLeadHistory = async () => {
@@ -273,6 +311,109 @@ export default function AssistantAssignedLeadsPage() {
       setLeadHistoryError(apiError instanceof Error ? apiError.message : "Unable to load lead history.");
     } finally {
       setIsLeadHistoryLoading(false);
+    }
+  };
+
+  function formatMeetingTime(isoString: string): string {
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return isoString;
+    return (
+      date.toLocaleDateString("en-IN", { weekday: "long", month: "long", day: "numeric", timeZone: "Asia/Kolkata" }) +
+      " · " +
+      date.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
+    );
+  }
+
+  const openMeetingModal = (type: "schedule" | "edit" | "cancel") => {
+    setMeetingFormError("");
+    if (type === "edit" && activeMeeting) {
+      const dt = new Date(activeMeeting.start_time);
+      // Convert stored UTC time to IST (UTC+5:30) for the date/time inputs
+      const istOffset = 5.5 * 60 * 60 * 1000;
+      const istDate = new Date(dt.getTime() + istOffset);
+      const date = istDate.toISOString().split("T")[0] ?? "";
+      const time = istDate.toISOString().split("T")[1]?.slice(0, 5) ?? "";
+      const mins = activeMeeting.duration_minutes ?? activeMeeting.duration ?? 60;
+      setMeetingForm({ topic: activeMeeting.topic, date, time, duration_minutes: mins, agenda: activeMeeting.agenda ?? "" });
+    } else if (type === "schedule") {
+      setMeetingForm({ topic: "", date: "", time: "", duration_minutes: 60, agenda: "" });
+    }
+    setMeetingModal(type);
+  };
+
+  const closeMeetingModal = () => {
+    if (isSubmittingMeeting) return;
+    setMeetingModal(null);
+    setMeetingFormError("");
+  };
+
+  const submitScheduleMeeting = async () => {
+    if (!selectedLeadSummary) return;
+    const { topic, date, time, duration_minutes } = meetingForm;
+    if (!topic.trim()) { setMeetingFormError("Topic is required."); return; }
+    if (!date) { setMeetingFormError("Date is required."); return; }
+    if (!time) { setMeetingFormError("Time is required."); return; }
+    if (duration_minutes < 1) { setMeetingFormError("Duration must be at least 1 minute."); return; }
+    setIsSubmittingMeeting(true);
+    setMeetingFormError("");
+    try {
+      const payload: CreateMeetingPayload = {
+        lead_id: selectedLeadSummary.id,
+        topic: topic.trim(),
+        start_time: `${date}T${time}:00+05:30`,
+        duration_minutes,
+        recipient_email: selectedLeadEmail !== "-" ? selectedLeadEmail : "",
+      };
+      const result = await createMeeting(payload);
+      setActiveMeeting(result);
+      setMeetingModal(null);
+      setMeetingToast({ type: "success", message: "Meeting scheduled successfully!" });
+    } catch (err) {
+      setMeetingFormError(err instanceof Error ? err.message : "Unable to schedule meeting.");
+    } finally {
+      setIsSubmittingMeeting(false);
+    }
+  };
+
+  const submitEditMeeting = async () => {
+    if (!activeMeeting) return;
+    const { topic, date, time, duration_minutes } = meetingForm;
+    if (!topic.trim()) { setMeetingFormError("Topic is required."); return; }
+    if (!date) { setMeetingFormError("Date is required."); return; }
+    if (!time) { setMeetingFormError("Time is required."); return; }
+    if (duration_minutes < 1) { setMeetingFormError("Duration must be at least 1 minute."); return; }
+    setIsSubmittingMeeting(true);
+    setMeetingFormError("");
+    try {
+      const payload: UpdateMeetingPayload = {
+        topic: topic.trim(),
+        start_time: `${date}T${time}:00+05:30`,
+        duration_minutes,
+      };
+      const result = await updateMeeting(activeMeeting.id, payload);
+      setActiveMeeting(result);
+      setMeetingModal(null);
+      setMeetingToast({ type: "success", message: "Meeting updated successfully!" });
+    } catch (err) {
+      setMeetingFormError(err instanceof Error ? err.message : "Unable to update meeting.");
+    } finally {
+      setIsSubmittingMeeting(false);
+    }
+  };
+
+  const confirmCancelMeeting = async () => {
+    if (!activeMeeting) return;
+    setIsSubmittingMeeting(true);
+    setMeetingFormError("");
+    try {
+      await deleteMeeting(activeMeeting.id);
+      setActiveMeeting(null);
+      setMeetingModal(null);
+      setMeetingToast({ type: "success", message: "Meeting cancelled successfully." });
+    } catch (err) {
+      setMeetingFormError(err instanceof Error ? err.message : "Unable to cancel meeting.");
+    } finally {
+      setIsSubmittingMeeting(false);
     }
   };
 
@@ -530,384 +671,439 @@ export default function AssistantAssignedLeadsPage() {
   };
 
   return (
-    <section className="space-y-6 lg:space-y-8">
-      <Card className="overflow-hidden rounded-3xl border-slate-200/80 bg-gradient-to-br from-white via-slate-50 to-emerald-50 p-0 shadow-md dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
-        <div className="flex flex-col gap-5 px-5 py-6 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+    <section className="space-y-5 pb-8">
+
+      {/* ── Page Header ── */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500 px-6 py-6 shadow-lg shadow-emerald-500/20">
+        <div className="pointer-events-none absolute inset-0 opacity-[0.07]">
+          <svg width="100%" height="100%"><defs><pattern id="al-g" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M 32 0 L 0 0 0 32" fill="none" stroke="white" strokeWidth="0.8"/></pattern></defs><rect width="100%" height="100%" fill="url(#al-g)"/></svg>
+        </div>
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
-              Lead Operations
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Assigned Leads</h2>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-              View all leads assigned to you and keep follow-up work organized.
-            </p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-100">Lead Operations</p>
+            <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-white">Assigned Leads</h1>
+            <p className="mt-1 text-sm text-emerald-100/90">All leads currently assigned to you.</p>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            <div className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Total Leads</p>
-              <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{totalCount}</p>
+          <div className="flex shrink-0 gap-3">
+            <div className="rounded-xl bg-white/15 px-5 py-3 text-center ring-1 ring-white/20 backdrop-blur-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-100">Total</p>
+              <p className="mt-0.5 text-2xl font-bold text-white">{totalCount}</p>
             </div>
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-center shadow-sm dark:border-emerald-900/40 dark:bg-emerald-950/20">
-              <p className="text-[11px] uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Assigned In Page</p>
-              <p className="text-lg font-semibold text-emerald-700 dark:text-emerald-300">{assignedCountInPage}</p>
+            <div className="rounded-xl bg-white/15 px-5 py-3 text-center ring-1 ring-white/20 backdrop-blur-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-100">This Page</p>
+              <p className="mt-0.5 text-2xl font-bold text-white">{assignedCountInPage}</p>
             </div>
           </div>
         </div>
-      </Card>
+      </div>
 
       {isError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
-          {error instanceof Error ? error.message : "Unable to load assigned leads."}
-        </p>
+        <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/20">
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-red-500" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <p className="text-sm font-medium text-red-700 dark:text-red-300">{error instanceof Error ? error.message : "Unable to load assigned leads."}</p>
+        </div>
       ) : null}
       {deleteError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
-          {deleteError}
-        </p>
+        <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/20">
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-red-500" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <p className="text-sm font-medium text-red-700 dark:text-red-300">{deleteError}</p>
+        </div>
       ) : null}
 
       {selectedLeadSummary ? (
-        <Card className="rounded-3xl border-slate-200/80 p-0 shadow-sm dark:border-slate-700">
-          <div className="border-b border-slate-200/80 px-5 py-4 dark:border-slate-700 sm:px-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-black">
+
+          {/* Detail Panel Header */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/60 px-5 py-3.5 dark:border-slate-800 dark:bg-black sm:px-6">
+            <nav className="flex items-center gap-1.5 text-sm">
+              <button
+                type="button"
+                onClick={closeLeadDetails}
+                className="flex items-center gap-1.5 font-medium text-emerald-600 transition hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+              >
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M5 12l7-7M5 12l7 7"/></svg>
+                All Leads
+              </button>
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+              {selectedLeadView === "details" ? (
+                <span className="font-semibold text-slate-800 dark:text-slate-100">{selectedLeadName}</span>
+              ) : (
+                <button type="button" onClick={showLeadDetails} className="font-medium text-emerald-600 transition hover:text-emerald-700 dark:text-emerald-400">
+                  {selectedLeadName}
+                </button>
+              )}
+              {selectedLeadView !== "details" ? (
+                <>
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">
+                    {selectedLeadView === "history" ? "History" : selectedLeadView === "update" ? "Add Remark & Status" : "Update Remark"}
+                  </span>
+                </>
+              ) : null}
+            </nav>
+            {selectedLeadView === "details" ? (
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={closeLeadDetails}
-                  className="text-emerald-700 transition hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200"
+                  onClick={() => void openLeadHistory()}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
                 >
-                  All Leads
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+                  History
                 </button>
-                <span>&gt;</span>
-                {selectedLeadView === "history" || selectedLeadView === "update" || selectedLeadView === "remarkUpdate" ? (
-                  <button
-                    type="button"
-                    onClick={showLeadDetails}
-                    className="text-emerald-700 transition hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200"
-                  >
-                    {selectedLeadName}
-                  </button>
-                ) : (
-                  <span className="text-slate-900 dark:text-slate-100">{selectedLeadName}</span>
-                )}
-                {selectedLeadView === "history" ? (
-                  <>
-                    <span>&gt;</span>
-                    <span className="text-slate-900 dark:text-slate-100">History</span>
-                  </>
-                ) : null}
-                {selectedLeadView === "update" ? (
-                  <>
-                    <span>&gt;</span>
-                    <span className="text-slate-900 dark:text-slate-100">Add remark &amp; Status</span>
-                  </>
-                ) : null}
-                {selectedLeadView === "remarkUpdate" ? (
-                  <>
-                    <span>&gt;</span>
-                    <span className="text-slate-900 dark:text-slate-100">Update remark</span>
-                  </>
-                ) : null}
+                <button
+                  type="button"
+                  onClick={openLeadStatusUpdate}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                >
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                  Add Remark &amp; Status
+                </button>
               </div>
-              {selectedLeadView === "details" ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button type="button" variant="secondary" onClick={openLeadStatusUpdate}>
-                    Add remark &amp; Status
-                  </Button>
-                  <Button type="button" variant="secondary" onClick={() => void openLeadHistory()}>
-                    History
-                  </Button>
-                </div>
-              ) : null}
-            </div>
+            ) : null}
           </div>
 
           <div className="p-5 sm:p-6">
             {selectedLeadView === "details" && isLeadDetailsLoading ? (
-              <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-400">
-                Loading lead details...
-              </p>
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {Array.from({ length: 4 }, (_, i) => (
+                    <div key={i} className="h-20 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-950" />
+                  ))}
+                </div>
+                <div className="h-32 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-950" />
+              </div>
             ) : null}
 
             {selectedLeadView === "details" && leadDetailsError ? (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
-                {leadDetailsError}
-              </p>
+              <div className="flex items-center gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 dark:border-red-900/30 dark:bg-red-950/20">
+                <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-red-500" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                <p className="text-sm font-medium text-red-700 dark:text-red-300">{leadDetailsError}</p>
+              </div>
             ) : null}
 
             {selectedLeadView === "details" && leadUpdateMessage ? (
-              <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300">
-                {leadUpdateMessage}
-              </p>
+              <div className="mb-4 flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 dark:border-emerald-900/30 dark:bg-emerald-950/20">
+                <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-emerald-500" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">{leadUpdateMessage}</p>
+              </div>
             ) : null}
 
             {selectedLeadView === "details" && !isLeadDetailsLoading && !leadDetailsError ? (
               <div className="space-y-5">
+                {/* Lead Identity Cards */}
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Lead ID</p>
-                    <p className="mt-2 break-all text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {selectedLeadDetails?.id ?? selectedLeadSummary.id}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Name</p>
-                    <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">{selectedLeadName}</p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Email</p>
-                    <p className="mt-2 break-all text-sm font-semibold text-slate-900 dark:text-slate-100">{selectedLeadEmail}</p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Phone</p>
-                    <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">{selectedLeadPhone}</p>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</p>
-                    <p className="mt-2 text-sm text-slate-900 dark:text-slate-100">
-                      {selectedLeadDetails?.status?.trim() || selectedLeadSummary.status}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Created</p>
-                    <p className="mt-2 text-sm text-slate-900 dark:text-slate-100">
-                      {formatDateTime(selectedLeadDetails?.created_at) || selectedLeadSummary.createdAt}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Updated</p>
-                    <p className="mt-2 text-sm text-slate-900 dark:text-slate-100">{formatDateTime(selectedLeadDetails?.updated_at)}</p>
-                  </div>
-                </div>
-
-                <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/40 sm:p-5">
-                  <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 dark:border-slate-700 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
-                        Assistant Activity
-                      </p>
-                      <h3 className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">Status &amp; Remarks</h3>
-                      {/* <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-                        Follow each status change in order, then review the latest assistant remarks and follow-up dates.
-                      </p> */}
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950">
+                    <div className="flex items-start justify-between">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Lead ID</p>
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-700">
+                        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8a2 2 0 00-2 2v2h12V5a2 2 0 00-2-2z"/></svg>
+                      </div>
                     </div>
-                    {/* <span className="w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                      Lead {leadRemarkDetails?.lead_id ?? selectedLeadSummary.id}
-                    </span> */}
+                    <p className="mt-2.5 break-all font-mono text-xs font-semibold text-slate-900 dark:text-slate-100">{selectedLeadDetails?.id ?? selectedLeadSummary.id}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950">
+                    <div className="flex items-start justify-between">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Name</p>
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-700">
+                        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                      </div>
+                    </div>
+                    <p className="mt-2.5 text-sm font-semibold text-slate-900 dark:text-slate-100">{selectedLeadName}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950">
+                    <div className="flex items-start justify-between">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Email</p>
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-700">
+                        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 01-2.06 0L2 7"/></svg>
+                      </div>
+                    </div>
+                    <p className="mt-2.5 break-all text-sm font-semibold text-slate-900 dark:text-slate-100">{selectedLeadEmail}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950">
+                    <div className="flex items-start justify-between">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Phone</p>
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-700">
+                        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
+                      </div>
+                    </div>
+                    <p className="mt-2.5 text-sm font-semibold text-slate-900 dark:text-slate-100">{selectedLeadPhone}</p>
+                  </div>
+                </div>
+
+                {/* Status + Timestamps */}
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</p>
+                    <div className="mt-2.5">
+                      {(() => {
+                        const st = selectedLeadDetails?.status?.trim() || selectedLeadSummary.status;
+                        const color = st === "Converted" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                          : st === "Interested" ? "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"
+                          : st === "Contacted" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                          : "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300";
+                        return (
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${color}`}>
+                            <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />{st}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Created</p>
+                    <p className="mt-2.5 text-sm font-medium text-slate-800 dark:text-slate-200">{formatDateTime(selectedLeadDetails?.created_at) || selectedLeadSummary.createdAt}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Last Updated</p>
+                    <p className="mt-2.5 text-sm font-medium text-slate-800 dark:text-slate-200">{formatDateTime(selectedLeadDetails?.updated_at)}</p>
+                  </div>
+                </div>
+
+                {/* Status & Remarks */}
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-black">
+                  <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-900/30">
+                      <svg viewBox="0 0 24 24" className="h-4 w-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Status &amp; Remarks</h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Activity log and follow-up notes</p>
+                    </div>
                   </div>
 
                   {isLeadRemarksLoading ? (
-                    <p className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/30 dark:text-slate-400">
-                      Loading status and remarks...
-                    </p>
+                    <div className="space-y-3 p-5">
+                      {Array.from({ length: 2 }, (_, i) => (
+                        <div key={i} className="h-24 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-950" />
+                      ))}
+                    </div>
                   ) : null}
-
                   {leadRemarksError ? (
-                    <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
-                      {leadRemarksError}
-                    </p>
+                    <div className="p-5">
+                      <div className="flex items-center gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 dark:border-red-900/30 dark:bg-red-950/20">
+                        <p className="text-sm font-medium text-red-700 dark:text-red-300">{leadRemarksError}</p>
+                      </div>
+                    </div>
                   ) : null}
 
                   {!isLeadRemarksLoading && !leadRemarksError ? (
-                    <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(260px,0.8fr)_minmax(420px,1.2fr)]">
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-950/30 sm:p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Status Flow</h4>
-                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                              Arrows show how this lead moved between statuses.
-                            </p>
-                          </div>
-                          <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                            {visibleStatusHistory.length} updates
-                          </span>
+                    <div className="grid xl:grid-cols-[1fr_1.4fr]">
+                      {/* Status Flow */}
+                      <div className="border-b border-slate-100 p-5 xl:border-b-0 xl:border-r dark:border-slate-800">
+                        <div className="mb-4 flex items-center justify-between">
+                          <h4 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Status Flow</h4>
+                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">{visibleStatusHistory.length}</span>
                         </div>
-
                         {visibleStatusHistory.length ? (
-                          <div className="mt-4 space-y-2.5">
+                          <div className="space-y-2">
                             {visibleStatusHistory.map((item, index) => (
-                              <div
-                                key={item.id}
-                                className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900"
-                              >
+                              <div key={item.id}>
                                 {index > 0 ? (
-                                  <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
-                                    <span className="h-px flex-1 bg-emerald-200 dark:bg-emerald-900/60" />
-                                    <svg
-                                      aria-hidden="true"
-                                      className="h-3.5 w-3.5"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                    >
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14m-6-6 6 6-6 6" />
-                                    </svg>
-                                    <span>next change</span>
+                                  <div className="my-2 flex items-center gap-2">
+                                    <div className="h-px flex-1 border-t border-dashed border-slate-200 dark:border-slate-700" />
+                                    <svg viewBox="0 0 24 24" className="h-3 w-3 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                                    <div className="h-px flex-1 border-t border-dashed border-slate-200 dark:border-slate-700" />
                                   </div>
                                 ) : null}
-                                <div className="flex items-start gap-3">
-                                  <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                                    {index + 1}
-                                  </span>
+                                <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950">
+                                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">{index + 1}</span>
                                   <div className="min-w-0">
-                                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                      {item.status?.trim() || "-"}
-                                    </p>
-                                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                                      {formatDateTime(item.created_at)}
-                                    </p>
-                                    <p className="mt-2 break-all text-[11px] text-slate-500 dark:text-slate-400">
-                                      Changed by:{" "}
-                                      <span className="font-medium text-slate-700 dark:text-slate-200">
-                                        {item.changed_by?.trim() || "System"}
-                                      </span>
-                                    </p>
+                                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{item.status?.trim() || "-"}</p>
+                                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{formatDateTime(item.created_at)}</p>
+                                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">by <span className="font-medium text-slate-700 dark:text-slate-300">{item.changed_by?.trim() || "System"}</span></p>
                                   </div>
                                 </div>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <p className="mt-4 rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                            No status changes found for this lead.
-                          </p>
+                          <div className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center dark:border-slate-700">
+                            <p className="text-sm text-slate-500 dark:text-slate-400">No status changes yet</p>
+                          </div>
                         )}
                       </div>
 
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-950/30">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Remarks</h4>
-                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                              Latest notes and next follow-up dates from the assistant.
-                            </p>
-                          </div>
-                          <span className="rounded-full bg-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                            {visibleRemarks.length} notes
-                          </span>
+                      {/* Remarks */}
+                      <div className="p-5">
+                        <div className="mb-4 flex items-center justify-between">
+                          <h4 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Remarks</h4>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600 dark:bg-slate-950 dark:text-slate-300">{visibleRemarks.length}</span>
                         </div>
-
                         {visibleRemarks.length ? (
-                          <div className="mt-4 space-y-3">
+                          <div className="space-y-3">
                             {visibleRemarks.map((remark, index) => (
-                              <div
-                                key={remark.id}
-                                className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
-                              >
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                    {index === 0 ? "Latest remark" : `Remark ${index + 1}`}
+                              <div key={remark.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950">
+                                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-2.5 dark:border-slate-700">
+                                  <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                    {index === 0 ? "Latest" : `#${index + 1}`}
                                   </span>
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span
-                                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                        remark.is_completed
-                                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                                          : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-                                      }`}
-                                    >
-                                      {remark.is_completed ? "Completed" : "Open follow-up"}
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${remark.is_completed ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"}`}>
+                                      {remark.is_completed ? "Completed" : "Open"}
                                     </span>
                                     {!remark.is_completed ? (
-                                      <Button
-                                        type="button"
-                                        variant="secondary"
-                                        onClick={() => openRemarkCompleteConfirm(remark)}
-                                        disabled={Boolean(completingRemarkId)}
-                                        className="h-8 rounded-full bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:hover:bg-emerald-950/50"
-                                      >
-                                        {completingRemarkId === remark.id ? "Saving..." : "Mark Complete"}
-                                      </Button>
+                                      <button type="button" onClick={() => openRemarkCompleteConfirm(remark)} disabled={Boolean(completingRemarkId)}
+                                        className="rounded-lg bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50 dark:bg-emerald-900/20 dark:text-emerald-300">
+                                        {completingRemarkId === remark.id ? "Saving…" : "Complete"}
+                                      </button>
                                     ) : null}
-                                    <Button
-                                      type="button"
-                                      variant="secondary"
-                                      onClick={() => openRemarkDeleteConfirm(remark)}
-                                      disabled={Boolean(deletingRemarkId)}
-                                      className="h-8 rounded-full bg-red-50 px-3 text-xs font-semibold text-red-700 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
-                                    >
-                                      {deletingRemarkId === remark.id ? "Deleting..." : "Delete"}
-                                    </Button>
+                                    <button type="button" onClick={() => openRemarkDeleteConfirm(remark)} disabled={Boolean(deletingRemarkId)}
+                                      className="rounded-lg bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-50 dark:bg-red-900/20 dark:text-red-400">
+                                      {deletingRemarkId === remark.id ? "Deleting…" : "Delete"}
+                                    </button>
                                   </div>
                                 </div>
-                                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-200">
-                                  {remark.remarks?.trim() || "-"}
-                                </p>
-                                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                                  <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-950/40">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                      Next follow-up
-                                    </p>
-                                    <p className="mt-1 text-xs font-medium text-slate-900 dark:text-slate-100">
-                                      {formatDateTime(remark.next_follow_up_date)}
-                                    </p>
-                                  </div>
-                                  <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-950/40">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                      Added
-                                    </p>
-                                    <p className="mt-1 text-xs font-medium text-slate-900 dark:text-slate-100">
-                                      {formatDateTime(remark.created_at)}
-                                    </p>
+                                <div className="px-4 py-3">
+                                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-200">{remark.remarks?.trim() || "-"}</p>
+                                  <div className="mt-3 grid grid-cols-2 gap-2">
+                                    <div className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-950">
+                                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Next Follow-up</p>
+                                      <p className="mt-0.5 text-xs font-medium text-slate-700 dark:text-slate-300">{formatDateTime(remark.next_follow_up_date)}</p>
+                                    </div>
+                                    <div className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-950">
+                                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Added</p>
+                                      <p className="mt-0.5 text-xs font-medium text-slate-700 dark:text-slate-300">{formatDateTime(remark.created_at)}</p>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <p className="mt-4 rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                            No remarks found for this lead.
-                          </p>
+                          <div className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center dark:border-slate-700">
+                            <p className="text-sm text-slate-500 dark:text-slate-400">No remarks found for this lead.</p>
+                          </div>
                         )}
                       </div>
                     </div>
                   ) : null}
                 </div>
+
+                {/* Meetings */}
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-black">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-900/30">
+                        <svg viewBox="0 0 24 24" className="h-4 w-4 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Meetings</h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Zoom meetings for this lead</p>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => openMeetingModal("schedule")}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                      Schedule
+                    </button>
+                  </div>
+                  <div className="p-5">
+                    {isMeetingLoading ? (
+                      <div className="h-24 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-950" />
+                    ) : meetingError ? (
+                      <div className="flex items-center gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 dark:border-red-900/30 dark:bg-red-950/20">
+                        <p className="text-sm font-medium text-red-700 dark:text-red-400">{meetingError}</p>
+                      </div>
+                    ) : activeMeeting ? (
+                      <div className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/70 to-white p-4 dark:border-indigo-900/30 dark:from-indigo-950/10 dark:to-slate-900/40">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400">
+                              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-slate-900 dark:text-slate-100">{activeMeeting.topic}</p>
+                              <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">{formatMeetingTime(activeMeeting.start_time)}</p>
+                              <p className="mt-0.5 text-xs text-slate-500">{activeMeeting.duration_minutes ?? activeMeeting.duration} min</p>
+                              {activeMeeting.agenda ? <p className="mt-1 text-xs italic text-slate-500 dark:text-slate-400">{activeMeeting.agenda}</p> : null}
+                            </div>
+                          </div>
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${activeMeeting.status === "cancelled" ? "bg-red-50 text-red-700 ring-red-100 dark:bg-red-950/30 dark:text-red-300 dark:ring-red-900/40" : "bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-900/40"}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${activeMeeting.status === "cancelled" ? "bg-red-500" : "bg-emerald-500"}`} />
+                            {activeMeeting.status === "cancelled" ? "Cancelled" : "Upcoming"}
+                          </span>
+                        </div>
+                        <div className="mt-3.5 flex flex-wrap gap-2 border-t border-indigo-100/80 pt-3.5 dark:border-indigo-900/20">
+                          {activeMeeting.join_url ? (
+                            <a href={activeMeeting.join_url} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700">
+                              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                              Join Meeting
+                            </a>
+                          ) : null}
+                          <button type="button" onClick={() => openMeetingModal("edit")}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-900">
+                            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>
+                            Edit
+                          </button>
+                          <button type="button" onClick={() => openMeetingModal("cancel")}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-semibold text-red-700 shadow-sm transition hover:bg-red-100 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400">
+                            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-indigo-200 py-10 text-center dark:border-indigo-900/30">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-300 dark:bg-indigo-950/30 dark:text-indigo-600">
+                          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                        </div>
+                        <p className="mt-3 text-sm font-semibold text-slate-700 dark:text-slate-300">No meeting scheduled yet</p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Schedule a Zoom meeting with this lead</p>
+                        <button type="button" onClick={() => openMeetingModal("schedule")}
+                          className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700">
+                          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                          Schedule Meeting
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
               </div>
             ) : null}
 
             {selectedLeadView === "history" && isLeadHistoryLoading ? (
-              <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-400">
-                Loading lead history...
-              </p>
+              <div className="space-y-2">
+                {Array.from({ length: 5 }, (_, i) => (
+                  <div key={i} className="h-12 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-950" />
+                ))}
+              </div>
             ) : null}
-
             {selectedLeadView === "history" && leadHistoryError ? (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
-                {leadHistoryError}
-              </p>
+              <div className="flex items-center gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 dark:border-red-900/30 dark:bg-red-950/20">
+                <p className="text-sm font-medium text-red-700 dark:text-red-300">{leadHistoryError}</p>
+              </div>
             ) : null}
-
             {selectedLeadView === "history" && !isLeadHistoryLoading && !leadHistoryError ? (
-              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-700">
+              <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
                 <table className="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-slate-700">
-                  <thead className="bg-slate-50 dark:bg-slate-800/60">
+                  <thead className="bg-slate-50 dark:bg-slate-950">
                     <tr>
-                      <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">History ID</th>
-                      <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Status</th>
-                      <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Changed By</th>
-                      <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Created</th>
+                      {["History ID", "Status", "Changed By", "Created"].map((col) => (
+                        <th key={col} className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{col}</th>
+                      ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {leadHistory.map((item) => (
-                      <tr key={item.id}>
-                        <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200">{item.id}</td>
-                        <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{item.status?.trim() || "-"}</td>
-                        <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{item.changed_by?.trim() || "-"}</td>
-                        <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{formatDateTime(item.created_at)}</td>
-                      </tr>
-                    ))}
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {leadHistory.map((item) => {
+                      const st = item.status?.trim() || "-";
+                      const hColor = st === "Converted" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                        : st === "Interested" ? "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
+                        : st === "Contacted" ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                        : "bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300";
+                      return (
+                        <tr key={item.id} className="transition hover:bg-slate-50/70 dark:hover:bg-slate-900/30">
+                          <td className="px-4 py-3 font-mono text-xs font-medium text-slate-500 dark:text-slate-400">{item.id}</td>
+                          <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${hColor}`}>{st}</span></td>
+                          <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-200">{item.changed_by?.trim() || "-"}</td>
+                          <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{formatDateTime(item.created_at)}</td>
+                        </tr>
+                      );
+                    })}
                     {!leadHistory.length ? (
-                      <tr>
-                        <td colSpan={4} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
-                          No history found for this lead.
-                        </td>
-                      </tr>
+                      <tr><td colSpan={4} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">No history found for this lead.</td></tr>
                     ) : null}
                   </tbody>
                 </table>
@@ -918,101 +1114,64 @@ export default function AssistantAssignedLeadsPage() {
               <div className="space-y-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Add remark &amp; Status</h3>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                      Update the lead outcome, add the latest remark, and schedule the next follow-up.
-                    </p>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Add Remark &amp; Status</h3>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Update outcome, add a remark, and schedule the next follow-up.</p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => openLeadRemarkUpdate()}
-                    disabled={isLeadRemarksLoading || !visibleRemarks.length}
-                  >
+                  <button type="button" onClick={() => openLeadRemarkUpdate()} disabled={isLeadRemarksLoading || !visibleRemarks.length}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                     Update Remark
-                  </Button>
+                  </button>
                 </div>
 
                 {leadUpdateError ? (
-                  <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
-                    {leadUpdateError}
-                  </p>
+                  <div className="flex items-center gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 dark:border-red-900/30 dark:bg-red-950/20">
+                    <p className="text-sm font-medium text-red-700 dark:text-red-300">{leadUpdateError}</p>
+                  </div>
                 ) : null}
 
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <label className="space-y-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Status
-                    <select
-                      value={leadStatusForm.status}
-                      onChange={(event) =>
-                        setLeadStatusForm((prev) => ({
-                          ...prev,
-                          status: event.target.value
-                        }))
-                      }
-                      className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                    >
-                      {LEAD_STATUS_OPTIONS.map((status) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                      ))}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Status <span className="text-red-500">*</span></label>
+                    <select value={leadStatusForm.status}
+                      onChange={(e) => setLeadStatusForm((prev) => ({ ...prev, status: e.target.value }))}
+                      className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+                      {LEAD_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                     </select>
-                  </label>
-
-                  <label className="space-y-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Next follow-up date
-                    <input
-                      type="datetime-local"
-                      value={leadStatusForm.nextFollowUpDate}
-                      onChange={(event) =>
-                        setLeadStatusForm((prev) => ({
-                          ...prev,
-                          nextFollowUpDate: event.target.value
-                        }))
-                      }
-                      className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                    />
-                  </label>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Next Follow-up Date <span className="text-red-500">*</span></label>
+                    <input type="datetime-local" value={leadStatusForm.nextFollowUpDate}
+                      onChange={(e) => setLeadStatusForm((prev) => ({ ...prev, nextFollowUpDate: e.target.value }))}
+                      className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+                  </div>
                 </div>
 
-                <label className="space-y-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Remarks
-                  <textarea
-                    value={leadStatusForm.remarks}
-                    onChange={(event) =>
-                      setLeadStatusForm((prev) => ({
-                        ...prev,
-                        remarks: event.target.value
-                      }))
-                    }
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Remarks <span className="text-red-500">*</span></label>
+                  <textarea value={leadStatusForm.remarks}
+                    onChange={(e) => setLeadStatusForm((prev) => ({ ...prev, remarks: e.target.value }))}
                     placeholder="Add the latest conversation note..."
-                    className="min-h-[160px] w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
-                  />
+                    className="min-h-[140px] w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+                </div>
+
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-950">
+                  <input type="checkbox" checked={leadStatusForm.isCompleted}
+                    onChange={(e) => setLeadStatusForm((prev) => ({ ...prev, isCompleted: e.target.checked }))}
+                    className="h-4 w-4 rounded border-slate-300 accent-emerald-500" />
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Mark this follow-up as completed</span>
                 </label>
 
-                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={leadStatusForm.isCompleted}
-                    onChange={(event) =>
-                      setLeadStatusForm((prev) => ({
-                        ...prev,
-                        isCompleted: event.target.checked
-                      }))
-                    }
-                    className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 dark:border-slate-600"
-                  />
-                  Mark this follow-up as completed
-                </label>
-
-                <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
-                  <Button type="button" variant="secondary" onClick={showLeadDetails} disabled={isUpdatingLeadStatus}>
+                <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+                  <button type="button" onClick={showLeadDetails} disabled={isUpdatingLeadStatus}
+                    className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                     Cancel
-                  </Button>
-                  <Button type="button" onClick={() => void submitLeadStatusUpdate()} disabled={isUpdatingLeadStatus}>
-                    {isUpdatingLeadStatus ? "Saving..." : "Save Remarks & Status"}
-                  </Button>
+                  </button>
+                  <button type="button" onClick={() => void submitLeadStatusUpdate()} disabled={isUpdatingLeadStatus}
+                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+                    {isUpdatingLeadStatus ? (
+                      <><svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>Saving…</>
+                    ) : "Save Remark & Status"}
+                  </button>
                 </div>
               </div>
             ) : null}
@@ -1020,303 +1179,354 @@ export default function AssistantAssignedLeadsPage() {
             {selectedLeadView === "remarkUpdate" ? (
               <div className="space-y-5">
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Update remark</h3>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    Edit the assistant remark text and completion status for this lead.
-                  </p>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Update Remark</h3>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Edit the remark text and completion status.</p>
                 </div>
 
                 {remarkUpdateError ? (
-                  <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
-                    {remarkUpdateError}
-                  </p>
+                  <div className="flex items-center gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 dark:border-red-900/30 dark:bg-red-950/20">
+                    <p className="text-sm font-medium text-red-700 dark:text-red-300">{remarkUpdateError}</p>
+                  </div>
                 ) : null}
 
                 {visibleRemarks.length ? (
                   <>
-                    <label className="space-y-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Remark
-                      <select
-                        value={selectedRemarkToUpdate?.id ?? ""}
-                        onChange={(event) => selectRemarkForUpdate(event.target.value)}
-                        disabled={isUpdatingRemark}
-                        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                      >
-                        {visibleRemarks.map((remark, index) => (
-                          <option key={remark.id} value={remark.id}>
-                            {index === 0 ? "Latest remark" : `Remark ${index + 1}`} - {formatDateTime(remark.created_at)}
-                          </option>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Select Remark</label>
+                      <select value={selectedRemarkToUpdate?.id ?? ""} onChange={(e) => selectRemarkForUpdate(e.target.value)} disabled={isUpdatingRemark}
+                        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+                        {visibleRemarks.map((r, i) => (
+                          <option key={r.id} value={r.id}>{i === 0 ? "Latest remark" : `Remark ${i + 1}`} — {formatDateTime(r.created_at)}</option>
                         ))}
                       </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Remarks</label>
+                      <textarea value={remarkUpdateForm.remarks}
+                        onChange={(e) => setRemarkUpdateForm((prev) => ({ ...prev, remarks: e.target.value }))}
+                        placeholder="Update the assistant remark..." disabled={isUpdatingRemark}
+                        className="min-h-[160px] w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+                    </div>
+
+                    <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-950">
+                      <input type="checkbox" checked={remarkUpdateForm.isCompleted}
+                        onChange={(e) => setRemarkUpdateForm((prev) => ({ ...prev, isCompleted: e.target.checked }))}
+                        disabled={isUpdatingRemark}
+                        className="h-4 w-4 rounded border-slate-300 accent-emerald-500 disabled:cursor-not-allowed" />
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Mark this follow-up as completed</span>
                     </label>
 
-                    <label className="space-y-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Remarks
-                      <textarea
-                        value={remarkUpdateForm.remarks}
-                        onChange={(event) =>
-                          setRemarkUpdateForm((prev) => ({
-                            ...prev,
-                            remarks: event.target.value
-                          }))
-                        }
-                        placeholder="Update the assistant remark..."
-                        disabled={isUpdatingRemark}
-                        className="min-h-[180px] w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
-                      />
-                    </label>
-
-                    <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300">
-                      <input
-                        type="checkbox"
-                        checked={remarkUpdateForm.isCompleted}
-                        onChange={(event) =>
-                          setRemarkUpdateForm((prev) => ({
-                            ...prev,
-                            isCompleted: event.target.checked
-                          }))
-                        }
-                        disabled={isUpdatingRemark}
-                        className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 disabled:cursor-not-allowed dark:border-slate-600"
-                      />
-                      Mark this follow-up as completed
-                    </label>
-
-                    <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={openLeadStatusUpdate}
-                        disabled={isUpdatingRemark}
-                      >
+                    <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+                      <button type="button" onClick={openLeadStatusUpdate} disabled={isUpdatingRemark}
+                        className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                         Cancel
-                      </Button>
-                      <Button type="button" onClick={() => void submitRemarkUpdate()} disabled={isUpdatingRemark}>
-                        {isUpdatingRemark ? "Saving..." : "Save Remark"}
-                      </Button>
+                      </button>
+                      <button type="button" onClick={() => void submitRemarkUpdate()} disabled={isUpdatingRemark}
+                        className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+                        {isUpdatingRemark ? (
+                          <><svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>Saving…</>
+                        ) : "Save Remark"}
+                      </button>
                     </div>
                   </>
                 ) : (
-                  <p className="rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                    No remarks found for this lead.
-                  </p>
+                  <div className="rounded-xl border border-dashed border-slate-200 px-4 py-10 text-center dark:border-slate-700">
+                    <p className="text-sm text-slate-500 dark:text-slate-400">No remarks available to update.</p>
+                  </div>
                 )}
               </div>
             ) : null}
           </div>
-        </Card>
-      ) : (
-        <Card className="rounded-3xl border-slate-200/80 p-0 shadow-sm dark:border-slate-700">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 px-5 py-4 dark:border-slate-700 sm:px-6">
-          <div>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Leads List</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Only your assigned leads are shown here.</p>
-          </div>
-          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-            Assigned shown: {assignedCountInPage}
-          </span>
         </div>
+      ) : (
+        /* ── Leads Table ── */
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-black">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800 sm:px-6">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Leads List</h3>
+              <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Only your assigned leads are shown here.</p>
+            </div>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">{assignedCountInPage} shown</span>
+          </div>
 
-        <div className="p-5 sm:p-6">
-          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-700">
-            <table className="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-slate-700">
-              <thead className="bg-slate-50 dark:bg-slate-800/60">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-100 text-left text-sm dark:divide-slate-800">
+              <thead className="bg-slate-50/80 dark:bg-slate-950">
                 <tr>
-                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Lead ID</th>
-                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Name</th>
-                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Email</th>
-                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Phone</th>
-                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Status</th>
-                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Created</th>
-                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Action</th>
+                  {["Lead ID", "Name", "Email", "Phone", "Status", "Created", "Action"].map((col) => (
+                    <th key={col} className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{col}</th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {isLoading ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
-                      Loading assigned leads...
-                    </td>
-                  </tr>
-                ) : null}
-
-                {!isLoading &&
-                  assignedLeads.map((lead) => (
-                    <tr
-                      key={lead.id}
-                      onClick={() => void openLeadDetails(lead)}
-                      className="cursor-pointer transition hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
-                    >
-                      <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200">{lead.id}</td>
-                      <td className="px-4 py-3 text-slate-900 dark:text-slate-100">{lead.name}</td>
-                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{lead.email}</td>
-                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{lead.phone}</td>
-                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{lead.status}</td>
-                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{lead.createdAt}</td>
-                      <td className="px-4 py-3">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            openDeleteConfirm(lead);
-                          }}
-                          disabled={Boolean(deletingLeadId)}
-                        >
-                          {deletingLeadId === lead.id ? "Deleting..." : "Delete"}
-                        </Button>
-                      </td>
+                  Array.from({ length: 5 }, (_, i) => (
+                    <tr key={i}>
+                      {Array.from({ length: 7 }, (__, j) => (
+                        <td key={j} className="px-4 py-3.5">
+                          <div className="h-4 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-950" />
+                        </td>
+                      ))}
                     </tr>
-                  ))}
-
-                {!isLoading && !assignedLeads.length ? (
+                  ))
+                ) : assignedLeads.length ? (
+                  assignedLeads.map((lead) => {
+                    const sc = lead.status === "Converted" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                      : lead.status === "Interested" ? "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
+                      : lead.status === "Contacted" ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                      : "bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300";
+                    return (
+                      <tr key={lead.id} onClick={() => void openLeadDetails(lead)} className="cursor-pointer transition hover:bg-slate-50/80 dark:hover:bg-slate-900/40">
+                        <td className="px-4 py-3.5 font-mono text-xs font-medium text-slate-500 dark:text-slate-400">{lead.id}</td>
+                        <td className="px-4 py-3.5 font-semibold text-slate-900 dark:text-slate-100">{lead.name}</td>
+                        <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">{lead.email}</td>
+                        <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">{lead.phone}</td>
+                        <td className="px-4 py-3.5"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${sc}`}>{lead.status}</span></td>
+                        <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">{lead.createdAt}</td>
+                        <td className="px-4 py-3.5">
+                          <button type="button" onClick={(e) => { e.stopPropagation(); openDeleteConfirm(lead); }} disabled={Boolean(deletingLeadId)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-50 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400">
+                            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+                            {deletingLeadId === lead.id ? "Deleting…" : "Delete"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
-                      No assigned leads found on this page.
+                    <td colSpan={7} className="px-4 py-14 text-center">
+                      <div className="flex flex-col items-center">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-950">
+                          <svg viewBox="0 0 24 24" className="h-6 w-6 text-slate-400" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+                        </div>
+                        <p className="mt-3 text-sm font-semibold text-slate-700 dark:text-slate-300">No assigned leads</p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">No leads are assigned to you on this page.</p>
+                      </div>
                     </td>
                   </tr>
-                ) : null}
+                )}
               </tbody>
             </table>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-slate-700">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Page {currentPage} of {totalPages}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-5 py-3.5 dark:border-slate-800 sm:px-6">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Page <span className="font-semibold text-slate-700 dark:text-slate-200">{currentPage}</span> of <span className="font-semibold text-slate-700 dark:text-slate-200">{totalPages}</span>
             </p>
             <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                disabled={currentPage <= 1 || isLoading}
-              >
+              <button type="button" onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))} disabled={currentPage <= 1 || isLoading}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900">
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
                 Previous
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                disabled={currentPage >= totalPages || isLoading}
-              >
+              </button>
+              <button type="button" onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))} disabled={currentPage >= totalPages || isLoading}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900">
                 Next
-              </Button>
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
+              </button>
             </div>
           </div>
         </div>
-      </Card>
       )}
 
+      {/* ── Floating Toast ── */}
+      {meetingToast ? (
+        <div className={`fixed right-4 top-4 z-[60] flex items-center gap-3 rounded-2xl border px-5 py-3.5 shadow-xl backdrop-blur-sm ${meetingToast.type === "success" ? "border-emerald-100 bg-white text-emerald-700 dark:border-emerald-800 dark:bg-slate-900 dark:text-emerald-300" : "border-red-100 bg-white text-red-700 dark:border-red-800 dark:bg-slate-900 dark:text-red-300"}`}>
+          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${meetingToast.type === "success" ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-red-100 dark:bg-red-900/40"}`}>
+            {meetingToast.type === "success"
+              ? <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+              : <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>}
+          </div>
+          <p className="text-sm font-semibold">{meetingToast.message}</p>
+        </div>
+      ) : null}
+
+      {/* ── Schedule / Edit Meeting Modal ── */}
+      {meetingModal === "schedule" || meetingModal === "edit" ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-indigo-600 dark:text-indigo-400">{meetingModal === "schedule" ? "New Meeting" : "Update Meeting"}</p>
+                <h4 className="mt-0.5 text-lg font-bold text-slate-900 dark:text-slate-100">{meetingModal === "schedule" ? "Schedule Meeting" : "Edit Meeting"}</h4>
+              </div>
+              <button type="button" onClick={closeMeetingModal} disabled={isSubmittingMeeting}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-500 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="space-y-4 p-6">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Meeting Topic <span className="text-red-500">*</span></label>
+                <input type="text" placeholder="e.g. Product Demo Call" value={meetingForm.topic}
+                  onChange={(e) => setMeetingForm((prev) => ({ ...prev, topic: e.target.value }))} disabled={isSubmittingMeeting}
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Date <span className="text-red-500">*</span></label>
+                  <input type="date" value={meetingForm.date}
+                    onChange={(e) => setMeetingForm((prev) => ({ ...prev, date: e.target.value }))} disabled={isSubmittingMeeting}
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Time (IST) <span className="text-red-500">*</span></label>
+                  <input type="time" value={meetingForm.time}
+                    onChange={(e) => setMeetingForm((prev) => ({ ...prev, time: e.target.value }))} disabled={isSubmittingMeeting}
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Duration (minutes) <span className="text-red-500">*</span></label>
+                <input type="number" min={1} placeholder="60" value={meetingForm.duration_minutes}
+                  onChange={(e) => setMeetingForm((prev) => ({ ...prev, duration_minutes: Number(e.target.value) }))} disabled={isSubmittingMeeting}
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Agenda <span className="font-normal normal-case text-slate-400">(optional)</span></label>
+                <textarea placeholder="Brief agenda for the meeting..." value={meetingForm.agenda}
+                  onChange={(e) => setMeetingForm((prev) => ({ ...prev, agenda: e.target.value }))} disabled={isSubmittingMeeting} rows={3}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+              </div>
+              {meetingFormError ? (
+                <div className="flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-2.5 dark:border-red-900/30 dark:bg-red-950/20">
+                  <p className="text-sm font-medium text-red-700 dark:text-red-400">{meetingFormError}</p>
+                </div>
+              ) : null}
+              <div className="flex gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+                <button type="button" onClick={() => void (meetingModal === "schedule" ? submitScheduleMeeting() : submitEditMeeting())} disabled={isSubmittingMeeting}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+                  {isSubmittingMeeting
+                    ? <><svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>Saving…</>
+                    : meetingModal === "schedule" ? "Schedule Meeting" : "Save Changes"}
+                </button>
+                <button type="button" onClick={closeMeetingModal} disabled={isSubmittingMeeting}
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Cancel Meeting Modal ── */}
+      {meetingModal === "cancel" ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400">
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            </div>
+            <h4 className="mt-4 text-lg font-bold text-slate-900 dark:text-slate-100">Cancel this meeting?</h4>
+            <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-300">This action cannot be undone.</p>
+            {activeMeeting ? (
+              <div className="mt-4 rounded-xl border border-red-100 bg-red-50 p-4 dark:border-red-900/30 dark:bg-red-950/20">
+                <p className="text-sm font-semibold text-red-700 dark:text-red-300">{activeMeeting.topic}</p>
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{formatMeetingTime(activeMeeting.start_time)}</p>
+              </div>
+            ) : null}
+            {meetingFormError ? (
+              <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">{meetingFormError}</p>
+            ) : null}
+            <div className="mt-6 flex gap-3">
+              <button type="button" onClick={closeMeetingModal} disabled={isSubmittingMeeting}
+                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                Keep Meeting
+              </button>
+              <button type="button" onClick={() => void confirmCancelMeeting()} disabled={isSubmittingMeeting}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-red-500/40">
+                {isSubmittingMeeting
+                  ? <><svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>Cancelling…</>
+                  : "Cancel Meeting"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Delete Remark Modal ── */}
       {remarkToDelete ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-700 dark:text-red-300">
-              Warning
-            </p>
-            <h4 className="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
-              Delete this remark?
-            </h4>
-            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
-              This remark will be removed from the lead. Please confirm before continuing.
-            </p>
-            <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-200">
-              <p className="font-semibold">Remark preview</p>
-              <p className="mt-2 line-clamp-4 whitespace-pre-wrap">{remarkToDelete.remarks?.trim() || "-"}</p>
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-red-600 dark:text-red-400">Warning</p>
+            <h4 className="mt-2 text-lg font-bold text-slate-900 dark:text-slate-100">Delete this remark?</h4>
+            <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-300">This remark will be permanently removed from the lead.</p>
+            <div className="mt-4 rounded-xl border border-red-100 bg-red-50 p-4 dark:border-red-900/30 dark:bg-red-950/20">
+              <p className="text-xs font-semibold uppercase tracking-wide text-red-600 dark:text-red-400">Remark preview</p>
+              <p className="mt-1.5 line-clamp-3 whitespace-pre-wrap text-sm text-red-700 dark:text-red-300">{remarkToDelete.remarks?.trim() || "-"}</p>
             </div>
             {remarkDeleteError ? (
-              <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
-                {remarkDeleteError}
-              </p>
+              <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">{remarkDeleteError}</p>
             ) : null}
-            <div className="mt-6 flex flex-wrap justify-end gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={closeRemarkDeleteConfirm}
-                disabled={Boolean(deletingRemarkId)}
-              >
-                No
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void confirmDeleteRemark()}
-                disabled={Boolean(deletingRemarkId)}
-                className="bg-red-600 text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-400"
-              >
-                {deletingRemarkId === remarkToDelete.id ? "Deleting..." : "Okay"}
-              </Button>
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" onClick={closeRemarkDeleteConfirm} disabled={Boolean(deletingRemarkId)}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                Keep
+              </button>
+              <button type="button" onClick={() => void confirmDeleteRemark()} disabled={Boolean(deletingRemarkId)}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60">
+                {deletingRemarkId === remarkToDelete.id ? "Deleting…" : "Delete"}
+              </button>
             </div>
           </div>
         </div>
       ) : null}
 
+      {/* ── Mark Complete Remark Modal ── */}
       {remarkToComplete ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
-              Confirm Complete
-            </p>
-            <h4 className="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
-              Mark this remark complete?
-            </h4>
-            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
-              This will mark the selected follow-up remark as completed.
-            </p>
-            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200">
-              <p className="font-semibold">Remark preview</p>
-              <p className="mt-2 line-clamp-4 whitespace-pre-wrap">{remarkToComplete.remarks?.trim() || "-"}</p>
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">Confirm</p>
+            <h4 className="mt-2 text-lg font-bold text-slate-900 dark:text-slate-100">Mark remark as complete?</h4>
+            <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-300">This will mark the selected follow-up remark as completed.</p>
+            <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 p-4 dark:border-emerald-900/30 dark:bg-emerald-950/20">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">Remark preview</p>
+              <p className="mt-1.5 line-clamp-3 whitespace-pre-wrap text-sm text-emerald-700 dark:text-emerald-300">{remarkToComplete.remarks?.trim() || "-"}</p>
             </div>
             {remarkCompleteError ? (
-              <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
-                {remarkCompleteError}
-              </p>
+              <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">{remarkCompleteError}</p>
             ) : null}
-            <div className="mt-6 flex flex-wrap justify-end gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={closeRemarkCompleteConfirm}
-                disabled={Boolean(completingRemarkId)}
-              >
-                No
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void confirmMarkRemarkComplete()}
-                disabled={Boolean(completingRemarkId)}
-                className="bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400"
-              >
-                {completingRemarkId === remarkToComplete.id ? "Saving..." : "Okay"}
-              </Button>
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" onClick={closeRemarkCompleteConfirm} disabled={Boolean(completingRemarkId)}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                Cancel
+              </button>
+              <button type="button" onClick={() => void confirmMarkRemarkComplete()} disabled={Boolean(completingRemarkId)}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60">
+                {completingRemarkId === remarkToComplete.id ? "Saving…" : "Mark Complete"}
+              </button>
             </div>
           </div>
         </div>
       ) : null}
 
+      {/* ── Delete Lead Modal ── */}
       {leadToDelete ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-700 dark:text-red-300">
-              Confirm Delete
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-red-600 dark:text-red-400">Confirm Delete</p>
+            <h4 className="mt-2 text-lg font-bold text-slate-900 dark:text-slate-100">Delete this assigned lead?</h4>
+            <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-300">
+              This will permanently delete lead <span className="font-mono font-semibold">{leadToDelete.id}</span>. This cannot be undone.
             </p>
-            <h4 className="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
-              Delete this assigned lead?
-            </h4>
-            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
-              This will delete lead {leadToDelete.id}. This action cannot be undone.
-            </p>
-            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-200">
-              <p>Name: {leadToDelete.name}</p>
-              <p>Email: {leadToDelete.email}</p>
-              <p>Created: {leadToDelete.createdAt}</p>
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
+              <div className="space-y-1.5 text-sm">
+                <p className="text-slate-600 dark:text-slate-300">Name: <span className="font-semibold text-slate-900 dark:text-slate-100">{leadToDelete.name}</span></p>
+                <p className="text-slate-600 dark:text-slate-300">Email: <span className="font-semibold text-slate-900 dark:text-slate-100">{leadToDelete.email}</span></p>
+                <p className="text-slate-600 dark:text-slate-300">Created: <span className="font-semibold text-slate-900 dark:text-slate-100">{leadToDelete.createdAt}</span></p>
+              </div>
             </div>
-            <div className="mt-6 flex flex-wrap justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={closeDeleteConfirm} disabled={Boolean(deletingLeadId)}>
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" onClick={closeDeleteConfirm} disabled={Boolean(deletingLeadId)}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                 Cancel
-              </Button>
-              <Button type="button" onClick={() => void confirmDeleteLead()} disabled={Boolean(deletingLeadId)}>
-                {deletingLeadId === leadToDelete.id ? "Deleting..." : "Delete"}
-              </Button>
+              </button>
+              <button type="button" onClick={() => void confirmDeleteLead()} disabled={Boolean(deletingLeadId)}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60">
+                {deletingLeadId === leadToDelete.id ? "Deleting…" : "Delete Lead"}
+              </button>
             </div>
           </div>
         </div>

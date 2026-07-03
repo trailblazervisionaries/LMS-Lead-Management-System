@@ -153,7 +153,7 @@ export default function AdminProfilePage() {
                   </div>
 
                   {/* Name + badges */}
-                  <div className="pb-1">
+                  <div className="mt-24">
                     <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">{displayName}</h3>
                     <div className="mt-1.5 flex flex-wrap items-center gap-2">
                       <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700 ring-1 ring-inset ring-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-800">

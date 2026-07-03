@@ -944,7 +944,7 @@ export default function AdminTotalLeadsPage() {
                     <td className="px-5 py-3.5 text-slate-500 dark:text-slate-400 sm:px-6">{lead.createdAt}</td>
                   </tr>
                 ))}
-
+                  
                 {!isLoadingLeads && !filteredLeads.length ? (
                   <tr>
                     <td colSpan={visibleFieldDefinitions.length + 2} className="px-5 py-14 text-center sm:px-6">

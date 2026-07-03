@@ -221,7 +221,7 @@ export default function AssistantEmailSendingPage() {
       <div className="pointer-events-none absolute -right-24 top-28 -z-10 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl" />
       <div className="pointer-events-none absolute -left-24 top-64 -z-10 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
 
-      <Card className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-0 shadow-[0_14px_40px_rgba(15,23,42,0.10)] dark:border-slate-800 dark:bg-slate-950/90">
+      <Card className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-0 shadow-[0_14px_40px_rgba(15,23,42,0.10)] dark:border-slate-800 dark:bg-black">
         <div className="flex flex-col gap-5 px-5 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <div className="max-w-2xl">
             <span className="inline-flex rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-600 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-200">
@@ -233,7 +233,7 @@ export default function AssistantEmailSendingPage() {
             </p>
           </div>
           <div className="grid grid-cols-3 gap-3 sm:min-w-[390px]">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center shadow-sm dark:border-slate-700 dark:bg-slate-950">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Total Leads</p>
               <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-50">{totalCount}</p>
             </div>
@@ -261,7 +261,7 @@ export default function AssistantEmailSendingPage() {
       ) : null}
 
       <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.95fr)]">
-        <Card className="overflow-hidden rounded-[28px] border border-slate-200 bg-white/90 dark:border-slate-800 dark:bg-slate-950/80 p-0 shadow-[0_18px_70px_rgba(2,6,23,0.32)] backdrop-blur">
+        <Card className="overflow-hidden rounded-[28px] border border-slate-200 bg-white/90 dark:border-slate-800 dark:bg-black p-0 shadow-[0_18px_70px_rgba(2,6,23,0.32)] backdrop-blur">
           <div className="flex flex-col gap-4 border-b border-slate-200 dark:border-slate-800 px-5 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h3 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">Lead Directory</h3>
@@ -283,7 +283,7 @@ export default function AssistantEmailSendingPage() {
                     setSearchQuery(event.target.value);
                   }}
                   placeholder="Search by name, email, phone number..."
-                  className="h-11 rounded-xl border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 dark:placeholder:text-slate-500"
+                  className="h-11 rounded-xl border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
               </label>
               <label className="space-y-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
@@ -294,7 +294,7 @@ export default function AssistantEmailSendingPage() {
                     setCurrentPage(1);
                     setEmailFilter(event.target.value as "all" | "withEmail" | "missingEmail");
                   }}
-                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                 >
                   <option value="withEmail">With Email</option>
                   <option value="all">All Leads</option>
@@ -303,10 +303,10 @@ export default function AssistantEmailSendingPage() {
               </label>
             </div>
 
-            <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-900/40">
+            <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-950">
               <div className="overflow-x-auto">
                 <table className="min-w-[860px] w-full divide-y divide-slate-200 text-left text-xs sm:text-sm dark:divide-slate-700/70">
-                  <thead className="bg-slate-100 dark:bg-slate-900/80">
+                  <thead className="bg-slate-100 dark:bg-slate-950">
                     <tr>
                       <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">Select</th>
                       <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">Lead</th>
@@ -324,7 +324,7 @@ export default function AssistantEmailSendingPage() {
                     {!isLoading && pageLeads.map((lead) => {
                       const hasValidEmail = lead.email.includes("@");
                       return (
-                        <tr key={lead.id} className="transition hover:bg-slate-100/80 dark:hover:bg-slate-800/60">
+                        <tr key={lead.id} className="transition hover:bg-slate-100/80 dark:hover:bg-slate-950">
                           <td className="px-4 py-3 align-top">
                             <input
                               type="checkbox"
@@ -401,7 +401,7 @@ export default function AssistantEmailSendingPage() {
           </div>
         </Card>
 
-        <Card className="rounded-[28px] border border-slate-200 bg-white/90 dark:border-slate-800 dark:bg-slate-950/80 p-5 shadow-[0_18px_70px_rgba(2,6,23,0.32)] backdrop-blur sm:p-6 xl:sticky xl:top-6">
+        <Card className="rounded-[28px] border border-slate-200 bg-white/90 dark:border-slate-800 dark:bg-black p-5 shadow-[0_18px_70px_rgba(2,6,23,0.32)] backdrop-blur sm:p-6 xl:sticky xl:top-6">
           <h3 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">Compose Email</h3>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Build your message and send to selected recipients.</p>
 
@@ -412,7 +412,7 @@ export default function AssistantEmailSendingPage() {
                 value={subject}
                 onChange={(event) => setSubject(event.target.value)}
                 placeholder="Example: Product Update for This Week"
-                className="h-11 rounded-xl border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 dark:placeholder:text-slate-500"
+                className="h-11 rounded-xl border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
               />
             </label>
             <label className="space-y-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
@@ -421,12 +421,12 @@ export default function AssistantEmailSendingPage() {
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
                 placeholder="Write your email content..."
-                className="min-h-[230px] w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 dark:placeholder:text-slate-500"
+                className="min-h-[230px] w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
               />
             </label>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-900/50 p-4">
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-950 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Campaign Summary</p>
             <div className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-200">
               <p>Selected leads: {selectedLeadIds.length}</p>
@@ -436,14 +436,14 @@ export default function AssistantEmailSendingPage() {
             </div>
           </div>
 
-          <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-900/50 p-4">
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-950 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Recipients</p>
             {selectedWithEmail.length ? (
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {visibleRecipients.map((lead) => (
                   <span
                     key={lead.id}
-                    className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-200"
+                    className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                   >
                     {lead.displayName || lead.email} ({lead.email})
                   </span>
@@ -453,7 +453,7 @@ export default function AssistantEmailSendingPage() {
                     hiddenRecipients.map((lead) => (
                       <span
                         key={lead.id}
-                        className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-200"
+                        className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                       >
                         {lead.displayName || lead.email} ({lead.email})
                       </span>
@@ -473,7 +473,7 @@ export default function AssistantEmailSendingPage() {
                   <button
                     type="button"
                     onClick={() => setShowAllRecipients(false)}
-                    className="inline-flex h-7 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:text-slate-200"
+                    className="inline-flex h-7 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:text-slate-200"
                   >
                     Show less
                   </button>
@@ -515,7 +515,7 @@ export default function AssistantEmailSendingPage() {
 
       {confirmModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4">
-          <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-black">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-700 dark:text-indigo-300">
               Confirm Send
             </p>
@@ -528,7 +528,7 @@ export default function AssistantEmailSendingPage() {
                 : "This will send the email only to the selected recipients with valid email addresses."}
             </p>
 
-            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
               <div className="space-y-1 text-sm text-slate-700 dark:text-slate-200">
                 <p>Subject: {subject.trim() || "No subject yet"}</p>
                 <p>Message: {message.trim() ? `${message.trim().slice(0, 110)}${message.trim().length > 110 ? "..." : ""}` : "No message yet"}</p>
