@@ -6,6 +6,10 @@ import {
   UpdateAssistantProfileResponse
 } from "@/types/assistant/assistant-profile";
 
+interface UploadAssistantImageResponse {
+  profile_image: string;
+}
+
 function getAssistantToken() {
   if (typeof document === "undefined") {
     return null;
@@ -59,5 +63,20 @@ export async function updateAssistantProfile(
     return response.data;
   } catch (error) {
     throw new Error(getApiErrorMessage(error, "Unable to update assistant profile"));
+  }
+}
+
+export async function uploadAssistantImage(file: File): Promise<UploadAssistantImageResponse> {
+  const token = getAssistantToken();
+  if (!token) throw new Error("Assistant authentication required. Please log in again.");
+  const formData = new FormData();
+  formData.append("file", file, file.name);
+  try {
+    const response = await api.put<UploadAssistantImageResponse>("/api/assistant/upload-image", formData, {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": undefined }
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, "Unable to upload profile image"));
   }
 }

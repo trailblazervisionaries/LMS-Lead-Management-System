@@ -671,28 +671,26 @@ export default function AssistantAssignedLeadsPage() {
   };
 
   return (
-    <section className="space-y-5 pb-8">
+    <section className="mx-auto w-full space-y-5 lg:space-y-6">
 
       {/* ── Page Header ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500 px-6 py-6 shadow-lg shadow-emerald-500/20">
-        <div className="pointer-events-none absolute inset-0 opacity-[0.07]">
-          <svg width="100%" height="100%"><defs><pattern id="al-g" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M 32 0 L 0 0 0 32" fill="none" stroke="white" strokeWidth="0.8"/></pattern></defs><rect width="100%" height="100%" fill="url(#al-g)"/></svg>
+      <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <div className="h-0.5 w-full bg-gradient-to-r from-brand-600 via-indigo-400 to-brand-500 dark:from-brand-800 dark:via-indigo-700 dark:to-brand-800" />
+        <div className="px-6 py-5 sm:px-8">
+          <span className="inline-flex items-center rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-brand-700 dark:border-brand-900/60 dark:bg-brand-950/60 dark:text-brand-300">
+            Lead Operations
+          </span>
+          <h1 className="mt-2.5 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Assigned Leads</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">All leads currently assigned to you.</p>
         </div>
-        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-100">Lead Operations</p>
-            <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-white">Assigned Leads</h1>
-            <p className="mt-1 text-sm text-emerald-100/90">All leads currently assigned to you.</p>
+        <div className="grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100 dark:divide-slate-800 dark:border-slate-800">
+          <div className="px-6 py-4 sm:px-8">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Total Leads</p>
+            <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">{totalCount}</p>
           </div>
-          <div className="flex shrink-0 gap-3">
-            <div className="rounded-xl bg-white/15 px-5 py-3 text-center ring-1 ring-white/20 backdrop-blur-sm">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-100">Total</p>
-              <p className="mt-0.5 text-2xl font-bold text-white">{totalCount}</p>
-            </div>
-            <div className="rounded-xl bg-white/15 px-5 py-3 text-center ring-1 ring-white/20 backdrop-blur-sm">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-100">This Page</p>
-              <p className="mt-0.5 text-2xl font-bold text-white">{assignedCountInPage}</p>
-            </div>
+          <div className="px-6 py-4 sm:px-8">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">This Page</p>
+            <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">{assignedCountInPage}</p>
           </div>
         </div>
       </div>

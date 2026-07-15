@@ -28,6 +28,23 @@ interface LeadCountersResponse {
   total_converted: number;
 }
 
+interface AssistantListApiResponse {
+  items: Array<{ is_active: boolean }>;
+  total_count: number;
+}
+
+async function getActiveAssistantCount(token: string): Promise<number> {
+  try {
+    const response = await api.get<AssistantListApiResponse>("/api/assistant/all", {
+      params: { page: 1, size: 1000 },
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data.items.filter((item) => item.is_active).length;
+  } catch {
+    return 0;
+  }
+}
+
 function getAssistantToken() {
   if (typeof document === "undefined") {
     return null;
@@ -54,10 +71,10 @@ function mapLeadCountersToStats(counters: LeadCountersResponse): DashboardStat[]
   ];
 }
 
-function mapAdminLeadCountersToStats(counters: LeadCountersResponse): DashboardStat[] {
+function mapAdminLeadCountersToStats(counters: LeadCountersResponse, activeAssistants: number): DashboardStat[] {
   return [
     { label: "Total Created", value: counters.total_created, trend: "Created leads" },
-    { label: "Total Assigned", value: counters.total_assigned, trend: "Assigned leads" },
+    { label: "Active Assistants", value: activeAssistants, trend: "Active assistants" },
     { label: "Total Contacted", value: counters.total_contacted, trend: "Contacted leads" },
     { label: "Total Interested", value: counters.total_interested, trend: "Interested leads" },
     { label: "Total Converted", value: counters.total_converted, trend: "Converted leads" }
@@ -89,12 +106,13 @@ export async function getAdminLeadCounters(): Promise<DashboardStat[]> {
   }
 
   try {
-    const response = await api.get<LeadCountersResponse>("/api/lead/lead-counters", {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-    return mapAdminLeadCountersToStats(response.data);
+    const [countersResponse, activeAssistants] = await Promise.all([
+      api.get<LeadCountersResponse>("/api/lead/lead-counters", {
+        headers: { Authorization: `Bearer ${token}` }
+      }),
+      getActiveAssistantCount(token)
+    ]);
+    return mapAdminLeadCountersToStats(countersResponse.data, activeAssistants);
   } catch (error) {
     throw new Error(getApiErrorMessage(error, "Unable to fetch lead counters."));
   }

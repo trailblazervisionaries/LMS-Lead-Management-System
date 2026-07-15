@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAssistantProfile } from "@/hooks/assistant/use-assistant-profile";
 import { useUpdateAssistantProfile } from "@/hooks/assistant/use-update-assistant-profile";
+import { useUploadAssistantImage } from "@/hooks/assistant/use-upload-assistant-image";
 import { createAssistantSchema, CreateAssistantSchemaValues } from "@/lib/validators/user-management";
 import { UpdateAssistantProfilePayload } from "@/types/assistant/assistant-profile";
 import api from "@/api/axios";
@@ -104,6 +105,10 @@ export default function AssistantProfileEditPage() {
   const queryClient = useQueryClient();
   const { data, isLoading, isError, error } = useAssistantProfile();
   const updateAssistantProfileMutation = useUpdateAssistantProfile();
+  const uploadImageMutation = useUploadAssistantImage();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [updateSuccess, setUpdateSuccess] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -144,6 +149,33 @@ export default function AssistantProfileEditPage() {
       postalCode: data.address?.postal_code ?? "",
     });
   }, [data, reset]);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setImageError(null);
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      setImageError("Only JPEG, PNG, or WEBP images are allowed.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setImageError("File size must not exceed 5MB.");
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    setImagePreview(objectUrl);
+    uploadImageMutation.mutate(file, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["assistant-profile"] });
+      },
+      onError: (err) => {
+        setImageError(err instanceof Error ? err.message : "Unable to upload image");
+        setImagePreview(null);
+      },
+    });
+    event.target.value = "";
+  };
 
   const onSubmit = (values: CreateAssistantSchemaValues) => {
     setUpdateError(null);
@@ -271,22 +303,65 @@ export default function AssistantProfileEditPage() {
             </div>
             <div className="flex items-end gap-4 px-6 pb-5 sm:px-8">
               <div className="-mt-10 shrink-0">
-                {profileImageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={profileImageUrl}
-                    alt={`${data.name} profile`}
-                    className="h-20 w-20 rounded-2xl border-4 border-white object-cover shadow-md dark:border-slate-900"
-                  />
-                ) : (
-                  <span className="inline-flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-white bg-gradient-to-br from-brand-400 to-brand-700 text-xl font-extrabold text-white shadow-md dark:border-slate-900">
-                    {initials}
-                  </span>
-                )}
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="group relative h-20 w-20 rounded-2xl border-4 border-white shadow-md dark:border-slate-900"
+                  disabled={uploadImageMutation.isPending}
+                  aria-label="Change profile photo"
+                >
+                  {uploadImageMutation.isPending ? (
+                    <span className="flex h-full w-full items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
+                      <svg className="h-6 w-6 animate-spin text-brand-600" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                      </svg>
+                    </span>
+                  ) : imagePreview ?? profileImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={(imagePreview ?? profileImageUrl)!}
+                      alt={`${data.name} profile`}
+                      className="h-full w-full rounded-xl object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-700 text-xl font-extrabold text-white">
+                      {initials}
+                    </span>
+                  )}
+                  {/* Camera overlay on hover */}
+                  {!uploadImageMutation.isPending && (
+                    <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                      <svg viewBox="0 0 24 24" className="h-6 w-6 text-white" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                        <circle cx="12" cy="13" r="4" />
+                      </svg>
+                    </span>
+                  )}
+                </button>
               </div>
               <div className="mt-12">
                 <p className="font-bold text-slate-900 dark:text-slate-100">{data.name}</p>
                 <p className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500">{data.role}</p>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadImageMutation.isPending}
+                  className="mt-1 text-xs font-medium text-brand-600 hover:underline disabled:opacity-50 dark:text-brand-400"
+                >
+                  Change photo
+                </button>
+                {imageError ? (
+                  <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{imageError}</p>
+                ) : null}
               </div>
             </div>
           </div>

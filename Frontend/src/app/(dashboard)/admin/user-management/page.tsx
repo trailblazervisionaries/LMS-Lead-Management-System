@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,6 +15,13 @@ import { useActivateAssistant } from "@/hooks/admin/use-activate-assistant";
 import { useDeactivateAssistant } from "@/hooks/admin/use-deactivate-assistant";
 import { createAssistantSchema, CreateAssistantSchemaValues } from "@/lib/validators/user-management";
 import { AssistantListItem, CreateAssistantPayload } from "@/types/assistants/user-management";
+
+function getImageUrl(profileImage: string | null | undefined) {
+  if (!profileImage) return null;
+  if (profileImage.startsWith("http://") || profileImage.startsWith("https://")) return profileImage;
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+  return `${apiBaseUrl.replace(/\/$/, "")}/${profileImage.replace(/^\//, "")}`;
+}
 
 const PAGE_SIZE = 10;
 
@@ -465,12 +471,11 @@ export default function AdminUserManagementPage() {
                         <tr key={user.user_id} className="transition hover:bg-slate-50/80 dark:hover:bg-slate-900/60">
                           <td className="px-5 py-3.5 sm:px-6">
                             <div className="flex items-center gap-3">
-                              {user.profile_image ? (
-                                <Image
-                                  src={user.profile_image}
+                              {getImageUrl(user.profile_image) ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={getImageUrl(user.profile_image)!}
                                   alt={`${user.name} profile`}
-                                  width={36}
-                                  height={36}
                                   className="h-9 w-9 shrink-0 rounded-xl border border-slate-200 object-cover dark:border-slate-700"
                                 />
                               ) : (
@@ -568,12 +573,11 @@ export default function AdminUserManagementPage() {
                     <div key={user.user_id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          {user.profile_image ? (
-                            <Image
-                              src={user.profile_image}
+                          {getImageUrl(user.profile_image) ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={getImageUrl(user.profile_image)!}
                               alt={`${user.name} profile`}
-                              width={36}
-                              height={36}
                               className="h-9 w-9 shrink-0 rounded-xl border border-slate-200 object-cover dark:border-slate-700"
                             />
                           ) : (
