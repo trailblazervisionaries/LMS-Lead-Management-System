@@ -800,762 +800,660 @@ export default function AdminLeadFormsPage() {
     }
   };
 
+  const activeTemplateCount = templates.filter((t) => t.is_active).length;
+
   return (
     <>
-      <section className="space-y-6">
-        <Card className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 p-0 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-          <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-4 dark:border-slate-800 dark:from-slate-950 dark:to-slate-900">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">Saved Lead Form Templates</h3>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage existing templates and continue editing anytime.</p>
-              </div>
-              <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
-                Total: {templates.length}
-              </span>
-            </div>
+      <section className="mx-auto w-full space-y-5 lg:space-y-6">
+
+        {/* ── PAGE HEADER ── */}
+        <Card className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-0 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <div className="h-0.5 w-full bg-gradient-to-r from-brand-600 via-indigo-400 to-brand-500 dark:from-brand-800 dark:via-indigo-700 dark:to-brand-800" />
+          <div className="px-6 py-6 sm:px-7 sm:py-7">
+            <span className="inline-flex items-center rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-brand-700 dark:border-brand-900/60 dark:bg-brand-950/60 dark:text-brand-300">
+              Form Builder
+            </span>
+            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
+              Lead Forms
+            </h1>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+              Build drag-and-drop lead capture forms, save templates, and embed them on any website.
+            </p>
           </div>
-
-          <div className="p-4 sm:p-5">
-            {isLoadingTemplates ? <p className="text-sm text-slate-500 dark:text-slate-400">Loading templates...</p> : null}
-            {templatesError ? <p className="text-sm text-red-600">{templatesError}</p> : null}
-            {!isLoadingTemplates && !templatesError && !templates.length ? (
-              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-400">
-                No lead form templates found.
+          <div className="border-t border-slate-100 dark:border-slate-800">
+            <div className="grid grid-cols-3">
+              <div className="flex flex-col gap-1 border-r border-slate-100 px-6 py-4 dark:border-slate-800 sm:px-7">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">Templates</p>
+                <p className="text-3xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">{templates.length}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Saved</p>
               </div>
-            ) : null}
-
-            {!isLoadingTemplates && !templatesError && templates.length ? (
-              <>
-                <div className="hidden overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 lg:block">
-                  <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
-                    <thead className="bg-slate-50/80 dark:bg-slate-950/60">
-                      <tr className="text-left text-slate-600 dark:text-slate-300">
-                        <th className="px-4 py-3 font-semibold">Form Name</th>
-                        <th className="px-4 py-3 font-semibold">Slug</th>
-                        <th className="px-4 py-3 font-semibold">Status</th>
-                        <th className="px-4 py-3 font-semibold">Fields</th>
-                        <th className="px-4 py-3 font-semibold">Active</th>
-                        <th className="px-4 py-3 font-semibold">Created</th>
-                        <th className="px-4 py-3 text-right font-semibold">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                      {templates.map((template) => (
-                        <tr
-                          key={template.id}
-                          onClick={() => void openTemplateDetails(template.id)}
-                          className="cursor-pointer text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900/30"
-                        >
-                          <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{template.schema_definition?.form_name ?? "-"}</td>
-                          <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{template.schema_definition?.slug ?? "-"}</td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClasses(template.schema_definition?.status)}`}>
-                              {template.schema_definition?.status ?? "-"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">{template.schema_definition?.fields?.length ?? 0}</td>
-                          <td className="px-4 py-3">{template.is_active ? "Yes" : "No"}</td>
-                          <td className="px-4 py-3">{formatDateTime(template.created_at)}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void openTemplateDetails(template.id);
-                                }}
-                                className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
-                              >
-                                View Details
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void editTemplate(template.id);
-                                }}
-                                className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                disabled={deletingTemplateId === template.id}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void deleteTemplate(template.id);
-                                }}
-                                className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400 dark:hover:bg-red-950/30"
-                              >
-                                {deletingTemplateId === template.id ? "Deleting..." : "Delete"}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="space-y-3 lg:hidden">
-                  {templates.map((template) => (
-                    <div
-                      key={template.id}
-                      onClick={() => void openTemplateDetails(template.id)}
-                      className="cursor-pointer rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:hover:border-slate-600 dark:hover:bg-slate-900/40"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            {template.schema_definition?.form_name ?? "-"}
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{template.schema_definition?.slug ?? "-"}</p>
-                        </div>
-                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getStatusBadgeClasses(template.schema_definition?.status)}`}>
-                          {template.schema_definition?.status ?? "-"}
-                        </span>
-                      </div>
-
-                      <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-slate-50 p-2.5 text-xs dark:bg-slate-950/60">
-                        <div>
-                          <p className="text-slate-500 dark:text-slate-400">Fields</p>
-                          <p className="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">{template.schema_definition?.fields?.length ?? 0}</p>
-                        </div>
-                        <div>
-                          <p className="text-slate-500 dark:text-slate-400">Active</p>
-                          <p className="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">{template.is_active ? "Yes" : "No"}</p>
-                        </div>
-                        <div>
-                          <p className="text-slate-500 dark:text-slate-400">Created</p>
-                          <p className="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">{formatDateTime(template.created_at)}</p>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void openTemplateDetails(template.id);
-                          }}
-                          className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
-                        >
-                          View Details
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void editTemplate(template.id);
-                          }}
-                          className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          disabled={deletingTemplateId === template.id}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void deleteTemplate(template.id);
-                          }}
-                          className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400 dark:hover:bg-red-950/30"
-                        >
-                          {deletingTemplateId === template.id ? "Deleting..." : "Delete"}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : null}
+              <div className="flex flex-col gap-1 border-r border-slate-100 px-6 py-4 dark:border-slate-800 sm:px-7">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Active</p>
+                <p className="text-3xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">{activeTemplateCount}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Live templates</p>
+              </div>
+              <div className="flex flex-col gap-1 px-6 py-4 sm:px-7">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-brand-600 dark:text-brand-400">Builder</p>
+                <p className="text-3xl font-semibold tabular-nums text-brand-700 dark:text-brand-300">{isFormBuilderOpen ? "Open" : "Closed"}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Current state</p>
+              </div>
+            </div>
           </div>
         </Card>
 
-        <Card className="rounded-2xl p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* ── SAVED TEMPLATES ── */}
+        <Card className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-0 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800 sm:px-6">
             <div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Create Lead Form</h3>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Fill form details before opening the builder.
-              </p>
+              <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Saved Templates</h2>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Manage existing templates and continue editing anytime.</p>
+            </div>
+            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+              {templates.length} total
+            </span>
+          </div>
+
+          {isLoadingTemplates ? (
+            <div className="flex items-center justify-center gap-2 py-12">
+              <svg className="h-4 w-4 animate-spin text-brand-600 dark:text-brand-400" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Loading templates…</p>
+            </div>
+          ) : templatesError ? (
+            <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-3 dark:border-slate-800 sm:px-6">
+              <div className="flex w-full items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/20">
+                <svg className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                </svg>
+                <p className="text-sm font-medium text-red-700 dark:text-red-300">{templatesError}</p>
+              </div>
+            </div>
+          ) : !templates.length ? (
+            <div className="flex flex-col items-center gap-2.5 py-12">
+              <svg className="h-9 w-9 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              </svg>
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">No lead form templates found.</p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="hidden overflow-x-auto lg:block">
+                <table className="min-w-full divide-y divide-slate-100 text-left text-sm dark:divide-slate-800">
+                  <thead>
+                    <tr className="bg-slate-50/80 dark:bg-slate-900/60">
+                      {["Form Name", "Slug", "Status", "Fields", "Active", "Created", "Actions"].map((h) => (
+                        <th key={h} className={["px-5 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:px-6", h === "Actions" ? "text-right" : ""].join(" ")}>
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {templates.map((template) => (
+                      <tr
+                        key={template.id}
+                        onClick={() => void openTemplateDetails(template.id)}
+                        className="cursor-pointer transition hover:bg-slate-50/80 dark:hover:bg-slate-900/60"
+                      >
+                        <td className="px-5 py-3.5 font-medium text-slate-900 dark:text-slate-100 sm:px-6">{template.schema_definition?.form_name ?? "-"}</td>
+                        <td className="px-5 py-3.5 sm:px-6">
+                          <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                            {template.schema_definition?.slug ?? "-"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 sm:px-6">
+                          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getStatusBadgeClasses(template.schema_definition?.status)}`}>
+                            {template.schema_definition?.status ?? "-"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 tabular-nums text-slate-600 dark:text-slate-300 sm:px-6">{template.schema_definition?.fields?.length ?? 0}</td>
+                        <td className="px-5 py-3.5 sm:px-6">
+                          <span className={["inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide", template.is_active ? "border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-950/30 dark:text-emerald-400" : "border border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"].join(" ")}>
+                            {template.is_active ? "Yes" : "No"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 text-slate-500 dark:text-slate-400 sm:px-6">{formatDateTime(template.created_at)}</td>
+                        <td className="px-5 py-3.5 sm:px-6">
+                          <div className="flex items-center justify-end gap-2">
+                            <button type="button" onClick={(e) => { e.stopPropagation(); void openTemplateDetails(template.id); }} className="inline-flex h-7 items-center rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">
+                              View
+                            </button>
+                            <button type="button" onClick={(e) => { e.stopPropagation(); void editTemplate(template.id); }} className="inline-flex h-7 items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-800/40 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/30">
+                              Edit
+                            </button>
+                            <button type="button" disabled={deletingTemplateId === template.id} onClick={(e) => { e.stopPropagation(); void deleteTemplate(template.id); }} className="inline-flex h-7 items-center rounded-lg border border-red-200 bg-red-50 px-2.5 text-[11px] font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400 dark:hover:bg-red-950/30">
+                              {deletingTemplateId === template.id ? "Deleting…" : "Delete"}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile cards */}
+              <div className="space-y-3 p-4 sm:p-5 lg:hidden">
+                {templates.map((template) => (
+                  <div key={template.id} onClick={() => void openTemplateDetails(template.id)} className="cursor-pointer rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800/70">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{template.schema_definition?.form_name ?? "-"}</p>
+                        <span className="mt-1 inline-block rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">{template.schema_definition?.slug ?? "-"}</span>
+                      </div>
+                      <span className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getStatusBadgeClasses(template.schema_definition?.status)}`}>
+                        {template.schema_definition?.status ?? "-"}
+                      </span>
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg border border-slate-100 bg-slate-50 p-2.5 text-xs dark:border-slate-800 dark:bg-slate-950/60">
+                      <div><p className="text-slate-400 dark:text-slate-500">Fields</p><p className="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">{template.schema_definition?.fields?.length ?? 0}</p></div>
+                      <div><p className="text-slate-400 dark:text-slate-500">Active</p><p className="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">{template.is_active ? "Yes" : "No"}</p></div>
+                      <div><p className="text-slate-400 dark:text-slate-500">Created</p><p className="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">{formatDateTime(template.created_at)}</p></div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button type="button" onClick={(e) => { e.stopPropagation(); void openTemplateDetails(template.id); }} className="inline-flex h-7 items-center rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">View</button>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); void editTemplate(template.id); }} className="inline-flex h-7 items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-800/40 dark:bg-emerald-950/20 dark:text-emerald-400">Edit</button>
+                      <button type="button" disabled={deletingTemplateId === template.id} onClick={(e) => { e.stopPropagation(); void deleteTemplate(template.id); }} className="inline-flex h-7 items-center rounded-lg border border-red-200 bg-red-50 px-2.5 text-[11px] font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-50 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400">
+                        {deletingTemplateId === template.id ? "Deleting…" : "Delete"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </Card>
+
+        {/* ── CREATE FORM SETUP ── */}
+        <Card className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-0 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800 sm:px-6">
+            <div>
+              <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Create Lead Form</h2>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Fill form details then open the drag-and-drop builder.</p>
             </div>
             <button
               type="button"
               onClick={createForm}
-              className="rounded-lg border border-brand-300 bg-brand-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 dark:border-brand-700 dark:bg-brand-700 dark:hover:bg-brand-600"
+              className="inline-flex h-9 items-center gap-2 rounded-xl border border-brand-500/40 bg-brand-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 dark:border-brand-700 dark:bg-brand-700 dark:hover:bg-brand-600"
             >
-              Create Form
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Open Builder
             </button>
           </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <label className="block text-sm">
-              <span className="mb-1 block text-slate-600 dark:text-slate-300">Form ID</span>
-              <input
-                value={formSetup.formId}
-                onChange={(event) => setFormSetup((prev) => ({ ...prev, formId: event.target.value }))}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block text-slate-600 dark:text-slate-300">Form Name</span>
-              <input
-                value={formSetup.formName}
-                onChange={(event) => {
-                  const nextFormName = event.target.value;
-                  const nextSlug = formSetup.slug.trim() ? formSetup.slug : slugify(nextFormName);
-                  setFormSetup((prev) => ({ ...prev, formName: nextFormName, slug: nextSlug }));
-                }}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block text-slate-600 dark:text-slate-300">Slug</span>
-              <input
-                value={formSetup.slug}
-                onChange={(event) => setFormSetup((prev) => ({ ...prev, slug: event.target.value }))}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block text-slate-600 dark:text-slate-300">Status</span>
-              <input
-                value={formSetup.status}
-                onChange={(event) => setFormSetup((prev) => ({ ...prev, status: event.target.value }))}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block text-slate-600 dark:text-slate-300">Version</span>
-              <input
-                type="number"
-                min={1}
-                value={formSetup.version}
-                onChange={(event) => setFormSetup((prev) => ({ ...prev, version: event.target.value }))}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-            </label>
-          </div>
-          {formSetupError ? <p className="mt-3 text-sm text-red-600">{formSetupError}</p> : null}
-        </Card>
-
-        {/* <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Lead Form Builder</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Drag fields, then choose each field layout as half width or full width.
-          </p>
-        </div> */}
-
-        {/* {isLoading ? <p className="text-sm text-slate-500 dark:text-slate-400">Loading lead form stats...</p> : null}
-        {isError ? <p className="text-sm text-red-600">Failed to load lead form stats.</p> : null}
-        {data ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {data.slice(0, 4).map((item) => (
-              <Card key={item.label} className="rounded-2xl border-slate-200/80 p-6 dark:border-slate-800">
-                <p className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl">
-                  {formatNumber(item.value)}
-                </p>
-                <div className="mt-7 flex items-center justify-between">
-                  <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{item.label}</p>
-                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-300">
-                    {item.trend}
-                  </span>
-                </div>
-              </Card>
-            ))}
-          </div>
-        ) : null} */}
-
-        {isFormBuilderOpen ? (
-          <div className="grid gap-4 lg:grid-cols-12 xl:gap-5">
-          <Card className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm lg:col-span-3 lg:p-5 dark:border-slate-800 dark:bg-slate-950">
-            <h3 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Field Library</h3>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Drag a field into the form canvas.</p>
-            <div className="mt-4 space-y-3 lg:max-h-[66vh] lg:overflow-y-auto lg:pr-1">
-              {FIELD_LIBRARY.map((template) => (
-                <button
-                  key={template.type}
-                  type="button"
-                  draggable
-                  onDragStart={(event) => {
-                    event.dataTransfer.setData(
-                      DND_KEY,
-                      JSON.stringify({ source: "library", fieldType: template.type } satisfies DragPayload)
-                    );
-                  }}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-brand-300 hover:bg-brand-50/40 dark:border-slate-700 dark:bg-slate-950 dark:hover:border-brand-700 dark:hover:bg-brand-900/20"
-                >
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{template.title}</p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{template.description}</p>
-                </button>
+          <div className="px-5 py-5 sm:px-6">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              {[
+                { key: "formId", label: "Form ID", type: "text" },
+                { key: "formName", label: "Form Name", type: "text" },
+                { key: "slug", label: "Slug", type: "text" },
+                { key: "status", label: "Status", type: "text" },
+                { key: "version", label: "Version", type: "number" }
+              ].map(({ key, label, type }) => (
+                <label key={key} className="block space-y-1.5 text-sm">
+                  <span className="font-medium text-slate-700 dark:text-slate-300">{label}</span>
+                  <input
+                    type={type}
+                    min={type === "number" ? 1 : undefined}
+                    value={formSetup[key as keyof FormSetupDetails]}
+                    onChange={(event) => {
+                      if (key === "formName") {
+                        const nextFormName = event.target.value;
+                        const nextSlug = formSetup.slug.trim() ? formSetup.slug : slugify(nextFormName);
+                        setFormSetup((prev) => ({ ...prev, formName: nextFormName, slug: nextSlug }));
+                      } else {
+                        setFormSetup((prev) => ({ ...prev, [key]: event.target.value }));
+                      }
+                    }}
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-brand-900/40"
+                  />
+                </label>
               ))}
             </div>
-          </Card>
 
-          <Card className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm lg:col-span-6 lg:p-5 dark:border-slate-800 dark:bg-slate-950">
-            <h3 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Form Canvas</h3>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Arrange your rows here. Use half/full layout from Field Settings.
-            </p>
-            <div
-              className="mt-4 min-h-72 space-y-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-3.5 dark:border-slate-700 dark:bg-slate-950/30"
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={handleDropAtEnd}
-            >
-              {!formFields.length ? (
-                <div className="flex min-h-52 items-center justify-center rounded-xl bg-white text-center text-sm text-slate-500 dark:bg-slate-950/50 dark:text-slate-400">
-                  Drop fields here to build your lead form.
-                </div>
-              ) : (
-                canvasRows.map((row, rowIndex) => (
-                  <div key={`row-${rowIndex}`} className="grid gap-3 md:grid-cols-2">
-                    {row.items.map(({ field, index }) => (
-                      <div
-                        key={field.id}
-                        draggable
-                        onDragStart={(event) => {
-                          event.dataTransfer.setData(
-                            DND_KEY,
-                            JSON.stringify({ source: "canvas", fieldId: field.id } satisfies DragPayload)
-                          );
-                        }}
-                        onDragOver={(event) => event.preventDefault()}
-                        onDrop={(event) => handleDrop(event, index)}
-                        onClick={() => setSelectedFieldId(field.id)}
-                        className={[
-                          "cursor-move rounded-xl border p-3.5 shadow-sm transition",
-                          field.layout === "full" ? "md:col-span-2" : "",
-                          selectedFieldId === field.id
-                            ? "border-brand-500 bg-brand-50/40 dark:border-brand-400 dark:bg-brand-900/20"
-                            : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-950"
-                        ].join(" ")}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                              {field.label} {field.required ? "*" : ""}
-                            </p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">
-                              {field.type.toUpperCase()} | {field.name} | {field.layout.toUpperCase()}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              deleteField(field.id);
-                            }}
-                            className="rounded-md px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
-
-          <Card className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-900 p-4 text-slate-100 shadow-sm lg:col-span-3 lg:sticky lg:top-4 lg:p-5 dark:border-slate-800">
-            <h3 className="text-2xl font-semibold tracking-tight text-slate-100">Field Settings</h3>
-            <p className="mt-1 text-sm text-slate-300">
-              Select a field in canvas and configure label, type, and row layout.
-            </p>
-            {!selectedField ? (
-              <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900/60 p-4 text-sm text-slate-300">
-                No field selected.
-              </div>
-            ) : (
-              <div className="mt-4 space-y-3">
-                <label className="block text-sm">
-                  <span className="mb-1 block text-slate-300">Field Type</span>
-                  <select
-                    value={selectedField.type}
-                    onChange={(event) => {
-                      const newType = event.target.value as BuilderFieldType;
-                      const defaults = FIELD_DEFAULTS[newType];
-                      updateField(selectedField.id, (field) => ({
-                        ...field,
-                        type: newType,
-                        placeholder: newType === "select" ? "" : field.placeholder || defaults.placeholder,
-                        options: newType === "select" ? (field.options.length ? field.options : defaults.options) : [],
-                        accept: newType === "file" ? (field.accept || defaults.accept) : ""
-                      }));
-                    }}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-100 outline-none focus:border-sky-500"
-                  >
-                    {FIELD_LIBRARY.map((fieldType) => (
-                      <option key={fieldType.type} value={fieldType.type}>
-                        {fieldType.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="block text-sm">
-                  <span className="mb-1 block text-slate-300">Label</span>
-                  <input
-                    value={selectedField.label}
-                    onChange={(event) =>
-                      updateField(selectedField.id, (field) => ({ ...field, label: event.target.value }))
-                    }
-                    className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-100 outline-none placeholder:text-slate-400 focus:border-sky-500"
-                  />
-                </label>
-
-                <label className="block text-sm">
-                  <span className="mb-1 block text-slate-300">Name</span>
-                  <input
-                    value={selectedField.name}
-                    onChange={(event) =>
-                      updateField(selectedField.id, (field) => ({ ...field, name: event.target.value }))
-                    }
-                    className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-100 outline-none placeholder:text-slate-400 focus:border-sky-500"
-                  />
-                </label>
-
-                <label className="block text-sm">
-                  <span className="mb-1 block text-slate-300">Row Layout</span>
-                  <select
-                    value={selectedField.layout}
-                    onChange={(event) =>
-                      updateField(selectedField.id, (field) => ({
-                        ...field,
-                        layout: event.target.value as FieldLayout
-                      }))
-                    }
-                    className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-100 outline-none focus:border-sky-500"
-                  >
-                    <option value="half">Half width (two fields in one row)</option>
-                    <option value="full">Full width (single field row)</option>
-                  </select>
-                </label>
-
-                {selectedField.type !== "select" && selectedField.type !== "file" ? (
-                  <label className="block text-sm">
-                    <span className="mb-1 block text-slate-300">Placeholder</span>
-                    <input
-                      value={selectedField.placeholder}
-                      onChange={(event) =>
-                        updateField(selectedField.id, (field) => ({ ...field, placeholder: event.target.value }))
-                      }
-                      className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-100 outline-none placeholder:text-slate-400 focus:border-sky-500"
-                    />
-                  </label>
-                ) : null}
-
-                {selectedField.type === "file" ? (
-                  <label className="block text-sm">
-                    <span className="mb-1 block text-slate-300">Allowed Document Types</span>
-                    <input
-                      value={selectedField.accept}
-                      onChange={(event) =>
-                        updateField(selectedField.id, (field) => ({ ...field, accept: event.target.value }))
-                      }
-                      placeholder=".pdf,.doc,.docx,.png,.jpg"
-                      className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-100 outline-none placeholder:text-slate-400 focus:border-sky-500"
-                    />
-                  </label>
-                ) : null}
-
-                {selectedField.type === "select" ? (
-                  <label className="block text-sm">
-                    <span className="mb-1 block text-slate-300">Dropdown Options</span>
-                    <textarea
-                      rows={4}
-                      value={selectedField.options.join("\n")}
-                      onChange={(event) =>
-                        updateField(selectedField.id, (field) => ({
-                          ...field,
-                          options: event.target.value
-                            .split("\n")
-                            .map((option) => option.trim())
-                            .filter(Boolean)
-                        }))
-                      }
-                      className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-100 outline-none placeholder:text-slate-400 focus:border-sky-500"
-                    />
-                  </label>
-                ) : null}
-
-                <label className="flex items-center gap-2 text-sm text-slate-200">
-                  <input
-                    type="checkbox"
-                    checked={selectedField.required}
-                    onChange={(event) =>
-                      updateField(selectedField.id, (field) => ({ ...field, required: event.target.checked }))
-                    }
-                    className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-brand-600 focus:ring-brand-500"
-                  />
-                  Required field
-                </label>
-              </div>
-            )}
-            <div className="mt-6 rounded-xl border border-slate-700 bg-slate-900/40">
-              <button
-                type="button"
-                onClick={() => setIsSendSettingsOpen((prev) => !prev)}
-                className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition hover:bg-slate-800/70"
-              >
-                <span className="text-sm font-semibold text-slate-100">Send Button Settings</span>
-                <svg
-                  viewBox="0 0 24 24"
-                  className={["h-4 w-4 text-slate-400 transition-transform", isSendSettingsOpen ? "rotate-180" : ""].join(" ")}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="m6 9 6 6 6-6" />
+            {formSetupError ? (
+              <div className="mt-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/20">
+                <svg className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                 </svg>
-              </button>
-              {isSendSettingsOpen ? (
-                <div className="space-y-3 border-t border-slate-700 px-3 pb-3 pt-3">
-                  <label className="block text-sm">
-                    <span className="mb-1 block text-slate-300">Button Label</span>
-                    <input
-                      value={submitButtonSettings.label}
-                      onChange={(event) =>
-                        setSubmitButtonSettings((prev) => ({ ...prev, label: event.target.value }))
-                      }
-                      className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-100 outline-none focus:border-sky-500"
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    <span className="mb-1 block text-slate-300">Button Color</span>
-                    <input
-                      type="color"
-                      value={submitButtonSettings.bgColor}
-                      onChange={(event) =>
-                        setSubmitButtonSettings((prev) => ({ ...prev, bgColor: event.target.value }))
-                      }
-                      className="h-10 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-900/70 p-1"
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    <span className="mb-1 block text-slate-300">Button Hover Color</span>
-                    <input
-                      type="color"
-                      value={submitButtonSettings.hoverColor}
-                      onChange={(event) =>
-                        setSubmitButtonSettings((prev) => ({ ...prev, hoverColor: event.target.value }))
-                      }
-                      className="h-10 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-900/70 p-1"
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    <span className="mb-1 block text-slate-300">Button Text Color</span>
-                    <input
-                      type="color"
-                      value={submitButtonSettings.textColor}
-                      onChange={(event) =>
-                        setSubmitButtonSettings((prev) => ({ ...prev, textColor: event.target.value }))
-                      }
-                      className="h-10 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-900/70 p-1"
-                    />
-                  </label>
+                <p className="text-sm font-medium text-red-700 dark:text-red-300">{formSetupError}</p>
+              </div>
+            ) : null}
+          </div>
+        </Card>
+
+        {/* ── FORM BUILDER (three-panel) ── */}
+        {isFormBuilderOpen ? (
+          <div className="grid gap-4 lg:grid-cols-12 xl:gap-5">
+
+            {/* Field Library */}
+            <Card className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-0 shadow-sm lg:col-span-3 dark:border-slate-800 dark:bg-slate-950">
+              <div className="border-b border-slate-100 px-4 py-4 dark:border-slate-800 sm:px-5">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Field Library</h3>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Drag a field onto the canvas.</p>
+              </div>
+              <div className="space-y-2.5 overflow-y-auto p-4 sm:p-5 lg:max-h-[66vh]">
+                {FIELD_LIBRARY.map((template) => (
+                  <button
+                    key={template.type}
+                    type="button"
+                    draggable
+                    onDragStart={(event) => {
+                      event.dataTransfer.setData(
+                        DND_KEY,
+                        JSON.stringify({ source: "library", fieldType: template.type } satisfies DragPayload)
+                      );
+                    }}
+                    className="w-full rounded-xl border border-slate-200 bg-white p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-brand-300 hover:bg-brand-50/40 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-700 dark:hover:bg-brand-900/20"
+                  >
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{template.title}</p>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{template.description}</p>
+                  </button>
+                ))}
+              </div>
+            </Card>
+
+            {/* Canvas */}
+            <Card className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-0 shadow-sm lg:col-span-6 dark:border-slate-800 dark:bg-slate-950">
+              <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-4 dark:border-slate-800 sm:px-5">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Form Canvas</h3>
+                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Drag & drop fields, set layout per field in Field Settings.</p>
                 </div>
-              ) : null}
-            </div>
-            <div className="mt-6 flex items-center justify-end gap-2 border-t border-slate-700/70 pt-4">
-              <button
-                type="button"
-                onClick={saveTemplate}
-                disabled={isSavingTemplate}
-                className="w-full rounded-lg border border-brand-400/70 bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70 lg:w-auto dark:border-brand-700 dark:bg-brand-700 dark:hover:bg-brand-600"
-              >
-                {isSavingTemplate ? "Saving..." : "Save Form Template"}
-              </button>
-            </div>
-            {templateSaveError ? <p className="mt-2 text-sm text-red-600">{templateSaveError}</p> : null}
-            {templateSaveSuccess ? <p className="mt-2 text-sm text-emerald-600">{templateSaveSuccess}</p> : null}
-          </Card>
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                  {formFields.length} field{formFields.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+              <div className="p-4 sm:p-5">
+                <div
+                  className="min-h-72 space-y-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-3.5 dark:border-slate-700 dark:bg-slate-950/30"
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={handleDropAtEnd}
+                >
+                  {!formFields.length ? (
+                    <div className="flex min-h-52 flex-col items-center justify-center gap-2 rounded-xl bg-white text-center dark:bg-slate-950/50">
+                      <svg className="h-8 w-8 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+                      <p className="text-sm text-slate-400 dark:text-slate-500">Drop fields here to build your form.</p>
+                    </div>
+                  ) : (
+                    canvasRows.map((row, rowIndex) => (
+                      <div key={`row-${rowIndex}`} className="grid gap-3 md:grid-cols-2">
+                        {row.items.map(({ field, index }) => (
+                          <div
+                            key={field.id}
+                            draggable
+                            onDragStart={(event) => {
+                              event.dataTransfer.setData(
+                                DND_KEY,
+                                JSON.stringify({ source: "canvas", fieldId: field.id } satisfies DragPayload)
+                              );
+                            }}
+                            onDragOver={(event) => event.preventDefault()}
+                            onDrop={(event) => handleDrop(event, index)}
+                            onClick={() => setSelectedFieldId(field.id)}
+                            className={[
+                              "cursor-move rounded-xl border p-3.5 shadow-sm transition",
+                              field.layout === "full" ? "md:col-span-2" : "",
+                              selectedFieldId === field.id
+                                ? "border-brand-500 bg-brand-50/40 dark:border-brand-400 dark:bg-brand-900/20"
+                                : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-950"
+                            ].join(" ")}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                  {field.label}{field.required ? " *" : ""}
+                                </p>
+                                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                                  <span className="rounded bg-slate-100 px-1 font-mono text-[10px] dark:bg-slate-800">{field.type}</span>
+                                  {" · "}{field.name}{" · "}{field.layout}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(event) => { event.stopPropagation(); deleteField(field.id); }}
+                                className="rounded-lg border border-red-100 bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-600 transition hover:bg-red-100 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </Card>
+
+            {/* Field Settings */}
+            <Card className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-0 text-slate-100 shadow-sm lg:col-span-3 lg:sticky lg:top-4 dark:border-slate-800">
+              <div className="border-b border-slate-800 px-4 py-4 sm:px-5">
+                <h3 className="text-sm font-semibold text-slate-100">Field Settings</h3>
+                <p className="mt-0.5 text-xs text-slate-400">Click a canvas field to configure it.</p>
+              </div>
+
+              <div className="overflow-y-auto p-4 sm:p-5 lg:max-h-[calc(66vh-57px)]">
+                {!selectedField ? (
+                  <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-6 text-center text-sm text-slate-400">
+                    No field selected.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <label className="block text-sm">
+                      <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Field Type</span>
+                      <select
+                        value={selectedField.type}
+                        onChange={(event) => {
+                          const newType = event.target.value as BuilderFieldType;
+                          const defaults = FIELD_DEFAULTS[newType];
+                          updateField(selectedField.id, (field) => ({
+                            ...field,
+                            type: newType,
+                            placeholder: newType === "select" ? "" : field.placeholder || defaults.placeholder,
+                            options: newType === "select" ? (field.options.length ? field.options : defaults.options) : [],
+                            accept: newType === "file" ? (field.accept || defaults.accept) : ""
+                          }));
+                        }}
+                        className="h-9 w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 text-sm text-slate-100 outline-none focus:border-brand-500"
+                      >
+                        {FIELD_LIBRARY.map((fieldType) => (
+                          <option key={fieldType.type} value={fieldType.type}>{fieldType.title}</option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="block text-sm">
+                      <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Label</span>
+                      <input
+                        value={selectedField.label}
+                        onChange={(event) => updateField(selectedField.id, (field) => ({ ...field, label: event.target.value }))}
+                        className="h-9 w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-brand-500"
+                      />
+                    </label>
+
+                    <label className="block text-sm">
+                      <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Field Name</span>
+                      <input
+                        value={selectedField.name}
+                        onChange={(event) => updateField(selectedField.id, (field) => ({ ...field, name: event.target.value }))}
+                        className="h-9 w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-brand-500"
+                      />
+                    </label>
+
+                    <label className="block text-sm">
+                      <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Row Layout</span>
+                      <select
+                        value={selectedField.layout}
+                        onChange={(event) => updateField(selectedField.id, (field) => ({ ...field, layout: event.target.value as FieldLayout }))}
+                        className="h-9 w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 text-sm text-slate-100 outline-none focus:border-brand-500"
+                      >
+                        <option value="half">Half width</option>
+                        <option value="full">Full width</option>
+                      </select>
+                    </label>
+
+                    {selectedField.type !== "select" && selectedField.type !== "file" ? (
+                      <label className="block text-sm">
+                        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Placeholder</span>
+                        <input
+                          value={selectedField.placeholder}
+                          onChange={(event) => updateField(selectedField.id, (field) => ({ ...field, placeholder: event.target.value }))}
+                          className="h-9 w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-brand-500"
+                        />
+                      </label>
+                    ) : null}
+
+                    {selectedField.type === "file" ? (
+                      <label className="block text-sm">
+                        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Allowed Types</span>
+                        <input
+                          value={selectedField.accept}
+                          onChange={(event) => updateField(selectedField.id, (field) => ({ ...field, accept: event.target.value }))}
+                          placeholder=".pdf,.doc,.docx,.png,.jpg"
+                          className="h-9 w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-brand-500"
+                        />
+                      </label>
+                    ) : null}
+
+                    {selectedField.type === "select" ? (
+                      <label className="block text-sm">
+                        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Options (one per line)</span>
+                        <textarea
+                          rows={4}
+                          value={selectedField.options.join("\n")}
+                          onChange={(event) => updateField(selectedField.id, (field) => ({
+                            ...field,
+                            options: event.target.value.split("\n").map((o) => o.trim()).filter(Boolean)
+                          }))}
+                          className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-brand-500"
+                        />
+                      </label>
+                    ) : null}
+
+                    <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-slate-700 bg-slate-900/40 px-3 py-2.5 text-sm text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={selectedField.required}
+                        onChange={(event) => updateField(selectedField.id, (field) => ({ ...field, required: event.target.checked }))}
+                        className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-brand-600 focus:ring-brand-500"
+                      />
+                      Required field
+                    </label>
+                  </div>
+                )}
+
+                {/* Send Button Settings accordion */}
+                <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900/40">
+                  <button
+                    type="button"
+                    onClick={() => setIsSendSettingsOpen((prev) => !prev)}
+                    className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition hover:bg-slate-800/70"
+                  >
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-300">Submit Button</span>
+                    <svg viewBox="0 0 24 24" className={["h-4 w-4 text-slate-400 transition-transform", isSendSettingsOpen ? "rotate-180" : ""].join(" ")} fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </button>
+                  {isSendSettingsOpen ? (
+                    <div className="space-y-3 border-t border-slate-700 px-3 pb-3 pt-3">
+                      <label className="block text-sm">
+                        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Label</span>
+                        <input value={submitButtonSettings.label} onChange={(event) => setSubmitButtonSettings((prev) => ({ ...prev, label: event.target.value }))} className="h-9 w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 text-sm text-slate-100 outline-none focus:border-brand-500" />
+                      </label>
+                      <label className="block text-sm">
+                        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Button Color</span>
+                        <input type="color" value={submitButtonSettings.bgColor} onChange={(event) => setSubmitButtonSettings((prev) => ({ ...prev, bgColor: event.target.value }))} className="h-10 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-900/70 p-1" />
+                      </label>
+                      <label className="block text-sm">
+                        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Hover Color</span>
+                        <input type="color" value={submitButtonSettings.hoverColor} onChange={(event) => setSubmitButtonSettings((prev) => ({ ...prev, hoverColor: event.target.value }))} className="h-10 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-900/70 p-1" />
+                      </label>
+                      <label className="block text-sm">
+                        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Text Color</span>
+                        <input type="color" value={submitButtonSettings.textColor} onChange={(event) => setSubmitButtonSettings((prev) => ({ ...prev, textColor: event.target.value }))} className="h-10 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-900/70 p-1" />
+                      </label>
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Save */}
+                <div className="mt-4 border-t border-slate-700/70 pt-4">
+                  <button
+                    type="button"
+                    onClick={saveTemplate}
+                    disabled={isSavingTemplate}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-brand-500/40 bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70 dark:border-brand-700 dark:bg-brand-700 dark:hover:bg-brand-600"
+                  >
+                    {isSavingTemplate ? (
+                      <>
+                        <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Saving…
+                      </>
+                    ) : "Save Form Template"}
+                  </button>
+                  {templateSaveError ? (
+                    <p className="mt-2 flex items-center gap-1.5 text-xs text-red-400">
+                      <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+                      {templateSaveError}
+                    </p>
+                  ) : null}
+                  {templateSaveSuccess ? (
+                    <p className="mt-2 flex items-center gap-1.5 text-xs text-emerald-400">
+                      <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                      {templateSaveSuccess}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </Card>
+
           </div>
         ) : null}
       </section>
 
+      {/* ── TEMPLATE DETAILS MODAL ── */}
       {isTemplateDetailsOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
-          onClick={closeTemplateDetails}
-        >
-          <div
-            className="w-full max-w-[1240px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-950"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-6 py-5 dark:border-slate-700 dark:from-slate-950 dark:to-slate-900">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                    {templateDetails?.schema_definition?.form_name ?? "Lead Form Details"}
-                  </h3>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    Template details overview for admin.
-                  </p>
-                  {templateDetails ? (
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <span className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
-                        ID: {templateDetails.id}
-                      </span>
-                      <span className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
-                        Slug: {templateDetails.schema_definition?.slug ?? "-"}
-                      </span>
-                      <span className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
-                        Status: {templateDetails.schema_definition?.status ?? "-"}
-                      </span>
-                    </div>
-                  ) : null}
-                </div>
-                <button
-                  type="button"
-                  onClick={closeTemplateDetails}
-                  className="inline-flex h-9 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
-                >
-                  Close
-                </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" onClick={closeTemplateDetails}>
+          <div className="w-full max-w-[1240px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-950" onClick={(event) => event.stopPropagation()}>
+            <div className="h-0.5 w-full bg-gradient-to-r from-brand-600 via-indigo-400 to-brand-500 dark:from-brand-800 dark:via-indigo-700 dark:to-brand-800" />
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-6 py-5 dark:border-slate-800">
+              <div>
+                <span className="inline-flex items-center rounded-full border border-brand-200 bg-brand-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-brand-700 dark:border-brand-900/60 dark:bg-brand-950/60 dark:text-brand-300">
+                  Template Details
+                </span>
+                <h3 className="mt-2 text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                  {templateDetails?.schema_definition?.form_name ?? "Lead Form Details"}
+                </h3>
+                {templateDetails ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                      {templateDetails.id}
+                    </span>
+                    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getStatusBadgeClasses(templateDetails.schema_definition?.status)}`}>
+                      {templateDetails.schema_definition?.status ?? "-"}
+                    </span>
+                  </div>
+                ) : null}
               </div>
+              <button type="button" onClick={closeTemplateDetails} className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-900">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
 
             <div className="max-h-[78vh] overflow-y-auto p-6">
               {isLoadingTemplateDetails ? (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-400">
-                  Loading template details...
+                <div className="flex items-center justify-center gap-2 py-10">
+                  <svg className="h-4 w-4 animate-spin text-brand-600 dark:text-brand-400" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Loading template details…</p>
                 </div>
               ) : null}
               {templateDetailsError ? (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
-                  {templateDetailsError}
+                <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/20">
+                  <svg className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                  </svg>
+                  <p className="text-sm font-medium text-red-700 dark:text-red-300">{templateDetailsError}</p>
                 </div>
               ) : null}
 
               {!isLoadingTemplateDetails && !templateDetailsError && templateDetails ? (
-                <div className="space-y-6">
+                <div className="space-y-5">
+                  {/* Meta strip */}
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Template Id</p>
-                      <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">{templateDetails.id}</p>
+                    {[
+                      { label: "Template ID", value: templateDetails.id, mono: true },
+                      { label: "Admin ID", value: templateDetails.admin_id ?? "-", mono: true },
+                      { label: "Active", value: templateDetails.is_active ? "Yes" : "No" },
+                      { label: "Created", value: formatDateTime(templateDetails.created_at) },
+                      { label: "Updated", value: formatDateTime(templateDetails.updated_at) },
+                      { label: "Total Fields", value: String(templateDetails.schema_definition?.fields?.length ?? 0) }
+                    ].map(({ label, value, mono }) => (
+                      <div key={label} className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
+                        <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">{label}</p>
+                        <p className={["mt-1.5 break-all text-sm font-semibold text-slate-900 dark:text-slate-100", mono ? "font-mono text-xs" : ""].join(" ")}>{value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Form Config */}
+                  <div className="overflow-hidden rounded-xl border border-slate-100 dark:border-slate-800">
+                    <div className="border-b border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
+                      <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Form Configuration</h4>
                     </div>
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Admin Id</p>
-                      <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">{templateDetails.admin_id ?? "-"}</p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Active</p>
-                      <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">
-                        {templateDetails.is_active ? "Yes" : "No"}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Created</p>
-                      <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">
-                        {formatDateTime(templateDetails.created_at)}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Updated</p>
-                      <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">
-                        {formatDateTime(templateDetails.updated_at)}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Fields</p>
-                      <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">
-                        {templateDetails.schema_definition?.fields?.length ?? 0}
-                      </p>
+                    <div className="grid gap-px bg-slate-100 dark:bg-slate-800 sm:grid-cols-2 xl:grid-cols-3">
+                      {[
+                        { label: "Form ID", value: templateDetails.schema_definition?.form_id ?? "-" },
+                        { label: "Form Name", value: templateDetails.schema_definition?.form_name ?? "-" },
+                        { label: "Slug", value: templateDetails.schema_definition?.slug ?? "-" },
+                        { label: "Status", value: templateDetails.schema_definition?.status ?? "-" },
+                        { label: "Version", value: String(templateDetails.schema_definition?.version ?? "-") },
+                        { label: "Columns", value: String(templateDetails.schema_definition?.layout?.columns ?? "-") }
+                      ].map(({ label, value }) => (
+                        <div key={label} className="bg-white px-4 py-3 dark:bg-slate-950">
+                          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">{label}</p>
+                          <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{value}</p>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-950">
-                    <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">Form Configuration</h4>
-                    <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                      <div className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
-                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Form ID</p>
-                        <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">{templateDetails.schema_definition?.form_id ?? "-"}</p>
-                      </div>
-                      <div className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
-                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Form Name</p>
-                        <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">{templateDetails.schema_definition?.form_name ?? "-"}</p>
-                      </div>
-                      <div className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
-                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Slug</p>
-                        <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">{templateDetails.schema_definition?.slug ?? "-"}</p>
-                      </div>
-                      <div className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
-                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</p>
-                        <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">{templateDetails.schema_definition?.status ?? "-"}</p>
-                      </div>
-                      <div className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
-                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Version</p>
-                        <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">{templateDetails.schema_definition?.version ?? "-"}</p>
-                      </div>
-                      <div className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
-                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Columns</p>
-                        <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">{templateDetails.schema_definition?.layout?.columns ?? "-"}</p>
-                      </div>
-                      <div className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700 sm:col-span-2">
-                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Field Spacing</p>
-                        <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">{templateDetails.schema_definition?.layout?.field_spacing ?? "-"}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-950">
-                    <div className="mb-4 flex items-center justify-between gap-2">
-                      <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">Fields</h4>
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">
-                        Total {templateDetails.schema_definition?.fields?.length ?? 0}
+                  {/* Fields table */}
+                  <div className="overflow-hidden rounded-xl border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
+                      <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Fields</h4>
+                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                        {templateDetails.schema_definition?.fields?.length ?? 0} total
                       </span>
                     </div>
                     {!templateDetails.schema_definition?.fields?.length ? (
-                      <p className="text-sm text-slate-500 dark:text-slate-400">No fields available in this template.</p>
+                      <p className="px-4 py-6 text-sm text-slate-500 dark:text-slate-400">No fields available in this template.</p>
                     ) : (
-                      <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
-                        <table className="min-w-full text-sm">
-                          <thead className="sticky top-0 bg-slate-50 dark:bg-slate-950/80">
-                            <tr className="text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                              <th className="px-3 py-3 font-semibold">Order</th>
-                              <th className="px-3 py-3 font-semibold">Label</th>
-                              <th className="px-3 py-3 font-semibold">Name</th>
-                              <th className="px-3 py-3 font-semibold">Type</th>
-                              <th className="px-3 py-3 font-semibold">Width</th>
-                              <th className="px-3 py-3 font-semibold">Required</th>
-                              <th className="px-3 py-3 font-semibold">Placeholder</th>
-                              <th className="px-3 py-3 font-semibold">Validation</th>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-100 text-sm dark:divide-slate-800">
+                          <thead>
+                            <tr className="bg-slate-50/80 dark:bg-slate-900/60">
+                              {["#", "Label", "Name", "Type", "Width", "Required", "Placeholder", "Validation"].map((h) => (
+                                <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</th>
+                              ))}
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {templateDetails.schema_definition.fields.map((field) => (
-                              <tr key={field.id} className="align-top text-slate-700 dark:text-slate-200">
-                                <td className="px-3 py-3 font-medium">{field.order ?? "-"}</td>
-                                <td className="px-3 py-3">{field.label ?? "-"}</td>
-                                <td className="px-3 py-3 font-mono text-xs">{field.name ?? "-"}</td>
-                                <td className="px-3 py-3">
-                                  <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 dark:bg-slate-950 dark:text-slate-200">
-                                    {field.type ?? "-"}
-                                  </span>
+                              <tr key={field.id} className="align-top transition hover:bg-slate-50/80 dark:hover:bg-slate-900/60">
+                                <td className="px-4 py-3 tabular-nums text-slate-500 dark:text-slate-400">{field.order ?? "-"}</td>
+                                <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{field.label ?? "-"}</td>
+                                <td className="px-4 py-3">
+                                  <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">{field.name ?? "-"}</span>
                                 </td>
-                                <td className="px-3 py-3">
-                                  <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 dark:bg-slate-950 dark:text-slate-200">
-                                    {field.width ?? "-"}
-                                  </span>
+                                <td className="px-4 py-3">
+                                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-slate-600 dark:bg-slate-800 dark:text-slate-300">{field.type ?? "-"}</span>
                                 </td>
-                                <td className="px-3 py-3">
-                                  <span
-                                    className={[
-                                      "rounded-full px-2 py-1 text-xs font-semibold",
-                                      field.required
-                                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                                        : "bg-slate-100 text-slate-700 dark:bg-slate-950 dark:text-slate-300"
-                                    ].join(" ")}
-                                  >
+                                <td className="px-4 py-3">
+                                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-slate-600 dark:bg-slate-800 dark:text-slate-300">{field.width ?? "-"}</span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className={["inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide", field.required ? "border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-950/30 dark:text-emerald-400" : "border border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"].join(" ")}>
                                     {field.required ? "Required" : "Optional"}
                                   </span>
                                 </td>
-                                <td className="px-3 py-3">{field.placeholder || "-"}</td>
-                                <td className="px-3 py-3">
-                                  <pre className="max-h-28 max-w-[260px] overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-700 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-200">
+                                <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{field.placeholder || "-"}</td>
+                                <td className="px-4 py-3">
+                                  <pre className="max-h-28 max-w-[220px] overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-2 text-[10px] text-slate-700 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-200">
                                     {JSON.stringify(field.validation ?? {}, null, 2)}
                                   </pre>
                                 </td>

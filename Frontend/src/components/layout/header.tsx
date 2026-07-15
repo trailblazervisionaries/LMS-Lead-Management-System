@@ -39,6 +39,7 @@ export function Header({ role, isSidebarCollapsed, onToggleSidebar }: HeaderProp
   const setAuth = useAuthStore((state) => state.setAuth);
   const logout = useAuthStore((state) => state.logout);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -95,6 +96,10 @@ export function Header({ role, isSidebarCollapsed, onToggleSidebar }: HeaderProp
           },
           token
         );
+        if (response.data.profile_image) {
+          const base = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
+          setProfileImage(`${base}/${response.data.profile_image.replace(/^\//, "")}`);
+        }
       } catch {
         // Keep existing fallback display when profile hydration fails.
       }
@@ -203,10 +208,15 @@ export function Header({ role, isSidebarCollapsed, onToggleSidebar }: HeaderProp
           aria-haspopup="menu"
           aria-expanded={isProfileOpen}
         >
-          {/* Gradient avatar */}
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-700 text-[11px] font-extrabold text-white shadow-sm">
-            {initials}
-          </span>
+          {/* Avatar */}
+          {profileImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={profileImage} alt={displayName} className="h-7 w-7 rounded-lg object-cover shadow-sm" />
+          ) : (
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-700 text-[11px] font-extrabold text-white shadow-sm">
+              {initials}
+            </span>
+          )}
           <span className="hidden max-w-[120px] truncate text-sm font-semibold text-slate-700 dark:text-slate-200 sm:block">
             {displayName}
           </span>
@@ -244,9 +254,14 @@ export function Header({ role, isSidebarCollapsed, onToggleSidebar }: HeaderProp
               </svg>
 
               {/* Avatar */}
-              <span className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-white/30 bg-white/20 text-base font-extrabold text-white backdrop-blur-sm">
-                {initials}
-              </span>
+              {profileImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profileImage} alt={displayName} className="h-12 w-12 rounded-2xl border-2 border-white/30 object-cover" />
+              ) : (
+                <span className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-white/30 bg-white/20 text-base font-extrabold text-white backdrop-blur-sm">
+                  {initials}
+                </span>
+              )}
 
               {/* Name + email */}
               <p className="mt-3 truncate font-bold text-white">{displayName}</p>

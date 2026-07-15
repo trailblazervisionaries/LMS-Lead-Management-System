@@ -61,13 +61,13 @@ export function LoginForm() {
         <div className="space-y-1.5">
           <label
             htmlFor="email"
-            className="block text-xs font-bold uppercase tracking-widest text-slate-500"
+            className="block text-[11px] font-bold uppercase tracking-widest text-slate-400"
           >
             Email address
           </label>
-          <div className="relative">
-            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+          <div className="group relative">
+            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-300 transition-colors duration-150 group-focus-within:text-violet-400">
+              <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth="1.75">
                 <rect x="3" y="5" width="18" height="14" rx="2" />
                 <path d="m3 7 9 6 9-6" />
               </svg>
@@ -97,20 +97,20 @@ export function LoginForm() {
           <div className="flex items-center justify-between">
             <label
               htmlFor="password"
-              className="block text-xs font-bold uppercase tracking-widest text-slate-500"
+              className="block text-[11px] font-bold uppercase tracking-widest text-slate-400"
             >
               Password
             </label>
             <Link
               href="/forgot-password"
-              className="text-xs font-semibold text-violet-600 transition-colors hover:text-violet-800 hover:underline"
+              className="text-[11px] font-semibold text-violet-500 transition-colors hover:text-violet-700 hover:underline underline-offset-2"
             >
               Forgot password?
             </Link>
           </div>
-          <div className="relative">
-            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+          <div className="group relative">
+            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-300 transition-colors duration-150 group-focus-within:text-violet-400">
+              <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth="1.75">
                 <rect x="3" y="11" width="18" height="11" rx="2" />
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>
@@ -126,7 +126,7 @@ export function LoginForm() {
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
-              className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400 transition-colors hover:text-slate-700"
+              className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-300 transition-colors hover:text-violet-500"
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? (

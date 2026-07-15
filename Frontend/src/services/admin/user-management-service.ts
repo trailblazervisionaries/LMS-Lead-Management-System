@@ -7,7 +7,7 @@ import {
   DeleteAssistantResponse,
   UpdateAssistantResponse
 } from "@/types/assistants/user-management";
-import { AdminProfileResponse, UpdateAdminPayload, UpdateAdminResponse } from "@/types/admin/admin-profile";
+import { AdminProfileResponse, UpdateAdminPayload, UpdateAdminResponse, UploadAdminImageResponse } from "@/types/admin/admin-profile";
 import api from "@/api/axios";
 import { getApiErrorMessage } from "@/utils/api-error";
 
@@ -163,6 +163,28 @@ export async function updateAdminProfile(payload: UpdateAdminPayload): Promise<U
     return response.data;
   } catch (error) {
     throw new Error(getApiErrorMessage(error, "Unable to update admin profile"));
+  }
+}
+
+export async function uploadAdminImage(file: File): Promise<UploadAdminImageResponse> {
+  const token = getAdminToken();
+  if (!token) {
+    throw new Error("Admin authentication required. Please log in again.");
+  }
+
+  const formData = new FormData();
+  formData.append("file", file, file.name);
+
+  try {
+    const response = await api.put<UploadAdminImageResponse>("/api/admin/upload-image", formData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": undefined
+      }
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, "Unable to upload profile image"));
   }
 }
 

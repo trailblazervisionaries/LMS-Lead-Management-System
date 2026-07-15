@@ -35,3 +35,8 @@ export interface UpdateAdminPayload {
 export interface UpdateAdminResponse {
   message?: string;
 }
+
+export interface UploadAdminImageResponse {
+  message?: string;
+  profile_image?: string;
+}
