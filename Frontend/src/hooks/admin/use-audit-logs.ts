@@ -9,5 +9,6 @@ export function useAdminAuditLogs(page: number, pageSize: number, filters: Audit
     queryKey: ["admin-audit-logs", page, pageSize, filters],
     queryFn: () => getAdminAuditLogs(page, pageSize, filters),
     placeholderData: keepPreviousData,
+    staleTime: 0,
   });
 }

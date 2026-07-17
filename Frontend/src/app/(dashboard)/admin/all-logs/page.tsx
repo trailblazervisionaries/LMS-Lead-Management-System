@@ -11,13 +11,15 @@ const PAGE_SIZE = 10;
 const ENTITY_OPTIONS = [
   { value: "", label: "All Entities" },
   { value: "lead", label: "Lead" },
-  { value: "user", label: "User" },
   { value: "assistant", label: "Assistant" },
+  { value: "form", label: "Form" },
+  { value: "meeting", label: "Meeting" },
+  { value: "assignment", label: "Assignment" },
 ];
 
 const ACTION_OPTIONS = [
   { value: "", label: "All Actions" },
-  { value: "CREATE", label: "Create" },
+  { value: "ADD", label: "Add" },
   { value: "UPDATE", label: "Update" },
   { value: "DELETE", label: "Delete" },
 ];
@@ -40,7 +42,7 @@ function formatDate(iso: string) {
 function ActionBadge({ action }: { action: string }) {
   const upper = action.toUpperCase();
   const cls =
-    upper === "CREATE"
+    upper === "ADD"
       ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-950/30 dark:text-emerald-400"
       : upper === "UPDATE"
         ? "border-brand-200 bg-brand-50 text-brand-700 dark:border-brand-800/40 dark:bg-brand-950/30 dark:text-brand-400"
@@ -59,11 +61,15 @@ function EntityBadge({ entity }: { entity: string }) {
   const cls =
     lower === "lead"
       ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800/40 dark:bg-indigo-950/30 dark:text-indigo-400"
-      : lower === "user"
-        ? "border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800/40 dark:bg-purple-950/30 dark:text-purple-400"
-        : lower === "assistant"
-          ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-400"
-          : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300";
+      : lower === "assistant"
+        ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-400"
+        : lower === "form"
+          ? "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-800/40 dark:bg-cyan-950/30 dark:text-cyan-400"
+          : lower === "meeting"
+            ? "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800/40 dark:bg-violet-950/30 dark:text-violet-400"
+            : lower === "assignment"
+              ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800/40 dark:bg-rose-950/30 dark:text-rose-400"
+              : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300";
   return (
     <span className={`inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[11px] uppercase ${cls}`}>
       {entity}
@@ -172,7 +178,7 @@ export default function AdminAllLogsPage() {
   const startItem = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const endItem = totalCount === 0 ? 0 : Math.min(currentPage * PAGE_SIZE, totalCount);
 
-  const createCount = logs.filter((l) => l.log_type?.toUpperCase() === "CREATE").length;
+  const addCount = logs.filter((l) => l.log_type?.toUpperCase() === "ADD").length;
   const updateCount = logs.filter((l) => l.log_type?.toUpperCase() === "UPDATE").length;
   const deleteCount = logs.filter((l) => l.log_type?.toUpperCase() === "DELETE").length;
 
@@ -222,8 +228,8 @@ export default function AdminAllLogsPage() {
                 <p className="text-xs text-slate-400 dark:text-slate-500">Log entries</p>
               </div>
               <div className="flex flex-col gap-1 border-r border-slate-100 px-6 py-4 dark:border-slate-800 sm:px-7">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Create</p>
-                <p className="text-3xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">{createCount}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Add</p>
+                <p className="text-3xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">{addCount}</p>
                 <p className="text-xs text-slate-400 dark:text-slate-500">This page</p>
               </div>
               <div className="flex flex-col gap-1 border-r border-slate-100 px-6 py-4 dark:border-slate-800 sm:px-7">

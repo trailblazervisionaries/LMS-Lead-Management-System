@@ -103,7 +103,7 @@ export function LoginForm() {
             </label>
             <Link
               href="/forgot-password"
-              className="text-[11px] font-semibold text-violet-500 transition-colors hover:text-violet-700 hover:underline underline-offset-2"
+              className="text-xs font-semibold text-violet-600 underline underline-offset-2 transition-colors hover:text-violet-800"
             >
               Forgot password?
             </Link>

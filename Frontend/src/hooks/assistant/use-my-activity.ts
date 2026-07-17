@@ -9,5 +9,6 @@ export function useMyActivity(page: number, pageSize: number, filters: AuditLogF
     queryKey: ["my-activity", page, pageSize, filters],
     queryFn: () => getMyActivityLogs(page, pageSize, filters),
     placeholderData: keepPreviousData,
+    staleTime: 0,
   });
 }

@@ -248,18 +248,12 @@ export default function AdminTotalLeadsPage() {
   const [selectedLeadFields, setSelectedLeadFields] = useState<LeadFieldKey[]>(LEAD_FIELDS.map((field) => field.key));
   const [activeTemplateId, setActiveTemplateId] = useState<string>("");
   const [filterField, setFilterField] = useState<LeadFieldKey>("name");
-  const [filterQuery, setFilterQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const filterQuery = "";
+  const statusFilter = "all";
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [isLoadingLeads, setIsLoadingLeads] = useState(false);
 
   const totalLeads = totalCount;
-  const visibleFieldDefinitions = useMemo(
-    () => leadFields.filter((field) => selectedLeadFields.includes(field.key)),
-    [leadFields, selectedLeadFields]
-  );
   const searchableFieldOptions = useMemo(
     () =>
       SEARCHABLE_FIELDS.filter(
@@ -267,7 +261,6 @@ export default function AdminTotalLeadsPage() {
       ),
     [leadFields, selectedLeadFields]
   );
-  const hasSearchableFields = searchableFieldOptions.length > 0;
   const loadAdminLeads = useCallback(async (page: number) => {
     const token = getAuthToken();
     if (!token) {
@@ -275,7 +268,6 @@ export default function AdminTotalLeadsPage() {
       return;
     }
 
-    setIsLoadingLeads(true);
     try {
       const response = await api.get<AdminLeadsResponse>("/api/lead/admin/leads", {
         params: { page, size: PAGE_SIZE },
@@ -287,11 +279,8 @@ export default function AdminTotalLeadsPage() {
       const payload = response.data;
       setLeads(Array.isArray(payload.items) ? payload.items.map(mapAdminLeadToRecord) : []);
       setTotalCount(payload.total_count ?? 0);
-      setTotalPages(Math.max(payload.total_pages ?? 1, 1));
     } catch (apiError) {
       setError(getApiErrorMessage(apiError, "Unable to fetch leads."));
-    } finally {
-      setIsLoadingLeads(false);
     }
   }, []);
 
@@ -361,10 +350,6 @@ export default function AdminTotalLeadsPage() {
     }
   }, [filterField, searchableFieldOptions]);
 
-  const statusOptions = useMemo(() => {
-    const uniqueStatuses = Array.from(new Set(leads.map((lead) => lead.status).filter(Boolean)));
-    return ["all", ...uniqueStatuses];
-  }, [leads]);
   const filteredLeads = useMemo(() => {
     const query = filterQuery.trim().toLowerCase();
 

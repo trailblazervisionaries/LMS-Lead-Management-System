@@ -19,16 +19,15 @@ export async function getAdminAuditLogs(
   const token = getAdminToken();
   if (!token) throw new Error("Admin authentication required. Please log in again.");
 
+  const params: Record<string, string | number> = { page, page_size: pageSize };
+  if (filters.entity_name) params.entity_name = filters.entity_name;
+  if (filters.log_type) params.log_type = filters.log_type;
+  if (filters.from_date) params.from_date = filters.from_date;
+  if (filters.to_date) params.to_date = filters.to_date;
+
   try {
     const response = await api.get<AuditLogPaginatedResponse>("/api/audit/admin/logs", {
-      params: {
-        page,
-        page_size: pageSize,
-        entity_name: filters.entity_name || undefined,
-        log_type: filters.log_type || undefined,
-        from_date: filters.from_date || undefined,
-        to_date: filters.to_date || undefined,
-      },
+      params,
       headers: { Authorization: `Bearer ${token}` },
     });
     return response.data;
